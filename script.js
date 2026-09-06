@@ -9,12 +9,21 @@ const firebaseConfig = {
     appId: "1:988016654865:web:e3afa29c54cc8a2b6f0fb0"
 };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const rtdb = firebase.database();
-const auth = firebase.auth();
-const provider = new firebase.auth.GoogleAuthProvider();
+if (typeof firebase === 'undefined') {
+    console.error("Firebase SDK failed to load. Operating in offline mode.");
+    // Mock minimal firebase objects to avoid crashes
+    var firebase = { initializeApp: () => ({}), firestore: () => ({ collection: () => ({ onSnapshot: () => ({}) }) }), database: () => ({ ref: () => ({ on: () => ({}) }) }), auth: () => ({ onAuthStateChanged: () => ({}), signOut: () => Promise.resolve() }) };
+    var db = firebase.firestore();
+    var rtdb = firebase.database();
+    var auth = firebase.auth();
+} else {
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+    var rtdb = firebase.database();
+    var auth = firebase.auth();
+}
+var provider = (typeof firebase.auth !== 'undefined') ? new firebase.auth.GoogleAuthProvider() : null;
 
 // Persistent State Helper
 const storage = {
@@ -40,49 +49,6 @@ let mockCategories = storage.get('cache_categories', [
 ]);
 let userChats = [];
 
-auth.onAuthStateChanged((user) => {
-    currentUser = user;
-    if (user) {
-        // Sync user data to Firestore
-        const userRef = db.collection("users").doc(user.uid);
-        userRef.set({
-            id: user.uid,
-            name: user.displayName,
-            email: user.email,
-            photo: user.photoURL,
-            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        userRef.onSnapshot(doc => {
-            if (doc.exists) {
-                userData = doc.data();
-                const profilePage = document.querySelector('.profile-page');
-                if (profilePage) {
-                    const businessSection = document.getElementById('business-info-section');
-                    if (businessSection) {
-                        businessSection.innerHTML = renderBusinessInfoContent();
-                    }
-                }
-            }
-        });
-
-        // Listen for user's specific chats
-        rtdb.ref("chats").on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                userChats = Object.values(data).filter(chat => chat.userName === user.displayName || chat.id.includes(user.uid));
-                const content = document.getElementById('app-content');
-                if (content.querySelector('.message-page')) navigate('message');
-            }
-        });
-    }
-
-    const content = document.getElementById('app-content');
-    if (content.querySelector('.profile-page')) {
-        navigate('profile');
-    }
-});
-
 function signInWithGoogle() {
     auth.signInWithPopup(provider).catch(error => {
         console.error("Auth Error:", error);
@@ -90,67 +56,14 @@ function signInWithGoogle() {
     });
 }
 
-// Real-time Listeners
-db.collection("products").onSnapshot((snapshot) => {
-    mockProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    saveData();
-    renderHomePageIfActive();
-});
-
-db.collection("categories").onSnapshot((snapshot) => {
-    if (!snapshot.empty) {
-        mockCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        saveData();
-        renderHomePageIfActive();
-    }
-});
-
-db.collection("notifications").orderBy("timestamp", "desc").limit(1).onSnapshot((snapshot) => {
-    snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-            const data = change.doc.data();
-            // Avoid showing old notifications on first load
-            const now = new Date().getTime();
-            const notifTime = new Date(data.timestamp).getTime();
-            if (now - notifTime < 10000) { // Only if added in the last 10 seconds
-                showNotificationToast(data.title, data.body);
-            }
-        }
-    });
-});
-
-// Dual Adverts Sync (Firestore & Realtime Database)
-db.collection("adverts").onSnapshot((snapshot) => {
-    if (snapshot && !snapshot.empty) {
-        const firestoreAds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (firestoreAds.length > 0) {
-            featuredAds = firestoreAds;
-            saveData();
-            renderHomePageIfActive();
-        }
-    }
-}, (err) => {
-    console.warn("Firestore adverts listener:", err);
-});
-
-rtdb.ref("adverts").on("value", (snapshot) => {
-    const data = snapshot.val();
-    if (data && Object.keys(data).length > 0) {
-        featuredAds = Object.values(data);
-        saveData();
-        renderHomePageIfActive();
-    } else if (featuredAds.length === 0) {
-        featuredAds = [
-            { id: 'ad1', title: 'Quality Electronics', short: 'Sourced from top manufacturers', icon: 'fa-microchip' },
-            { id: 'ad2', title: 'Fast Global Shipping', short: 'Door to door delivery', icon: 'fa-truck' }
-        ];
-        renderHomePageIfActive();
-    }
-});
-
 function renderHomePageIfActive() {
     const content = document.getElementById('app-content');
-    if (content.querySelector('.home-page')) navigate('home');
+    const isHome = content && content.querySelector('.home-page');
+    if (isHome) {
+        // Soft refresh without loader
+        const searchQuery = document.getElementById('search-input')?.value || '';
+        content.innerHTML = pages.home(searchQuery);
+    }
 }
 
 // Hot Update Engine Listener
@@ -215,14 +128,7 @@ function applyHotPatch(data) {
 }
 
 const mockOrders = [];
-
 const mockMessages = [];
-
-const followedShops = [];
-
-// Persistent State Helper
-const mockMessages = [];
-
 const followedShops = [];
 
 let cart = storage.get('cart', []);
@@ -629,13 +535,6 @@ function logout() {
         });
     }
 }
-    if (confirm('Are you sure you want to log out? This will reset all your sourcing data.')) {
-        auth.signOut().then(() => {
-            localStorage.clear();
-            location.reload(); // Hard reset
-        });
-    }
-}
 
 function deleteAccount() {
     if (confirm('WARNING: This will permanently delete your account and all saved data. This action cannot be undone.')) {
@@ -680,15 +579,21 @@ function saveAddress(formData) {
 
 const pages = {
     home: (searchQuery = '', filterCategory = null, sortBy = 'default') => {
-        const query = searchQuery.toLowerCase().trim();
-        let filteredProducts = mockProducts.filter(p => {
-            const matchesQuery = p.name.toLowerCase().includes(query) || p.company.toLowerCase().includes(query);
+        const query = (searchQuery || '').toLowerCase().trim();
+        const products = Array.isArray(mockProducts) ? mockProducts : [];
+        const ads = Array.isArray(featuredAds) ? featuredAds : [];
+        const cats = Array.isArray(mockCategories) ? mockCategories : [];
+
+        let filteredProducts = products.filter(p => {
+            const name = String(p.name || p.title || '').toLowerCase();
+            const company = String(p.company || '').toLowerCase();
+            const matchesQuery = name.includes(query) || company.includes(query);
             const matchesCategory = filterCategory ? p.category === filterCategory : true;
             return matchesQuery && matchesCategory;
         });
 
-        if (sortBy === 'low') filteredProducts.sort((a, b) => a.price - b.price);
-        else if (sortBy === 'high') filteredProducts.sort((a, b) => b.price - a.price);
+        if (sortBy === 'low') filteredProducts.sort((a, b) => (a.price || 0) - (b.price || 0));
+        else if (sortBy === 'high') filteredProducts.sort((a, b) => (b.price || 0) - (a.price || 0));
 
         return `
         <section class="home-page page-enter">
@@ -698,12 +603,12 @@ const pages = {
                     <button class="clear-history-btn">Clear</button>
                 </div>
                 <div class="history-tags">
-                    ${recentSearches.map(s => `<button class="history-tag" onclick="document.getElementById('search-input').value='${s}'; navigate('home', '${s}')">${s}</button>`).join('')}
+                    ${(recentSearches || []).map(s => `<button class="history-tag" onclick="document.getElementById('search-input').value='${s}'; navigate('home', '${s}')">${s}</button>`).join('')}
                 </div>
             </div>
 
             <div class="promo-carousel">
-                ${featuredAds.map((ad, i) => {
+                ${ads.map((ad, i) => {
                     const bgUrl = cloudinaryOptimize(ad.imageUrl, 1000);
                     const thumbUrl = cloudinaryOptimize(ad.imageUrl, 100);
                     return `
@@ -715,15 +620,15 @@ const pages = {
                         ${ad.imageUrl ? `<img src="${thumbUrl}" alt="${ad.title || 'Promo'}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; margin-left: auto; border: 2px solid rgba(255,255,255,0.7); box-shadow: 0 4px 10px rgba(0,0,0,0.15);" onerror="this.style.display='none'">` : `<i class="fas ${ad.icon || 'fa-rectangle-ad'} fa-3x" style="margin-left: auto; opacity: 0.3;"></i>`}
                     </div>
                 `}).join('')}
-                ${featuredAds.length > 1 ? `
+                ${ads.length > 1 ? `
                     <div class="carousel-indicators">
-                        ${featuredAds.map((_, i) => `<span class="indicator-dot ${i === 0 ? 'active' : ''}"></span>`).join('')}
+                        ${ads.map((_, i) => `<span class="indicator-dot ${i === 0 ? 'active' : ''}"></span>`).join('')}
                     </div>
                 ` : ''}
             </div>
 
             <div class="category-grid">
-                ${mockCategories.map(cat => `
+                ${cats.map(cat => `
                     <div class="category-item" onclick="navigate('home', '', '${cat.name}')">
                         <div class="category-icon"><i class="fas ${cat.icon}"></i></div>
                         <span>${cat.name}</span>
@@ -1477,7 +1382,9 @@ function navigate(pageId, itemId = null, category = null, sortBy = 'default', up
 
     // Determine if loading is needed (tab switches)
     const isTabSwitch = ['home', 'cart', 'message', 'profile'].includes(pageId) && !itemId && !category && sortBy === 'default';
-    if (isTabSwitch) {
+
+    // Only show loader if content is currently empty or very different
+    if (isTabSwitch && (!content.innerHTML || content.innerHTML.length < 100)) {
         content.innerHTML = `<div class="loading-container"><div class="spinner"></div></div>`;
     }
 
@@ -1489,27 +1396,32 @@ function navigate(pageId, itemId = null, category = null, sortBy = 'default', up
     const delay = isTabSwitch ? 600 : 200;
 
     setTimeout(() => {
-        // Clear transform to prevent breaking 'fixed' positioning inside content
-        if (pageId === 'chat') {
-            content.style.transform = 'none';
-        }
+        try {
+            // Clear transform to prevent breaking 'fixed' positioning inside content
+            if (pageId === 'chat') {
+                content.style.transform = 'none';
+            }
 
-        if (pageId === 'advert-detail' && itemId) {
-            trackFootprint(itemId, 'ad');
-            content.innerHTML = renderAdvertDetail(itemId);
-        } else if (pageId === 'product-detail' && itemId) {
-            trackFootprint(itemId, 'prod');
-            content.innerHTML = renderProductDetail(itemId);
-        } else if (pageId === 'orders') {
-            content.innerHTML = pages.orders(itemId || 'all');
-        } else if (pageId === 'home') {
-            content.innerHTML = pages.home(itemId || '', category, sortBy);
-        } else if (pageId === 'chat' && itemId) {
-            content.innerHTML = pages.chat(itemId);
-        } else if (pageId === 'checkout-success') {
-            content.innerHTML = pages['checkout-success'](itemId);
-        } else if (pages[pageId]) {
-            content.innerHTML = pages[pageId]();
+            if (pageId === 'advert-detail' && itemId) {
+                trackFootprint(itemId, 'ad');
+                content.innerHTML = renderAdvertDetail(itemId);
+            } else if (pageId === 'product-detail' && itemId) {
+                trackFootprint(itemId, 'prod');
+                content.innerHTML = renderProductDetail(itemId);
+            } else if (pageId === 'orders') {
+                content.innerHTML = pages.orders(itemId || 'all');
+            } else if (pageId === 'home') {
+                content.innerHTML = pages.home(itemId || '', category, sortBy);
+            } else if (pageId === 'chat' && itemId) {
+                content.innerHTML = pages.chat(itemId);
+            } else if (pageId === 'checkout-success') {
+                content.innerHTML = pages['checkout-success'](itemId);
+            } else if (pages[pageId]) {
+                content.innerHTML = pages[pageId]();
+            }
+        } catch (e) {
+            console.error("Navigation Error:", e);
+            content.innerHTML = `<div class="empty-state"><p>Something went wrong. Please refresh.</p></div>`;
         }
 
         content.style.opacity = '1';
@@ -1636,7 +1548,8 @@ document.getElementById('app-content').addEventListener('click', (event) => {
     if (clearHistory) {
         recentSearches = [];
         localStorage.removeItem('recentSearches');
-        if (content.querySelector('.home-page')) content.innerHTML = pages.home();
+        const content = document.getElementById('app-content');
+        if (content && content.querySelector('.home-page')) content.innerHTML = pages.home();
         return;
     }
 
@@ -1884,4 +1797,75 @@ function handleRouting() {
 
 window.addEventListener('popstate', handleRouting);
 
-handleRouting();
+// --- APP INITIALIZATION ---
+
+auth.onAuthStateChanged((user) => {
+    currentUser = user;
+    if (user) {
+        const userRef = db.collection("users").doc(user.uid);
+        userRef.set({
+            id: user.uid,
+            name: user.displayName,
+            email: user.email,
+            photo: user.photoURL,
+            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        userRef.onSnapshot(doc => {
+            if (doc.exists) {
+                userData = doc.data();
+                const businessSection = document.getElementById('business-info-section');
+                if (businessSection) businessSection.innerHTML = renderBusinessInfoContent();
+            }
+        });
+
+        rtdb.ref("chats").on("value", (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                userChats = Object.values(data).filter(chat => chat.userName === user.displayName || chat.id.includes(user.uid));
+                const content = document.getElementById('app-content');
+                if (content && content.querySelector('.message-page')) navigate('message');
+            }
+        });
+    }
+});
+
+// Real-time Listeners
+db.collection("products").onSnapshot((snapshot) => {
+    mockProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    saveData();
+    renderHomePageIfActive();
+});
+
+db.collection("categories").onSnapshot((snapshot) => {
+    if (!snapshot.empty) {
+        mockCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        saveData();
+        renderHomePageIfActive();
+    }
+});
+
+db.collection("adverts").onSnapshot((snapshot) => {
+    if (snapshot && !snapshot.empty) {
+        featuredAds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        saveData();
+        renderHomePageIfActive();
+    }
+}, (err) => {
+    console.warn("Firestore ads offline:", err);
+});
+
+// Deployment updates
+rtdb.ref("system/deployment").on("value", (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+        const now = new Date().getTime();
+        // If it's a recent signal, apply patch
+        if (now - data.last_updated_at < 60000) applyHotPatch(data);
+    }
+});
+
+// Initialization
+document.addEventListener('DOMContentLoaded', () => {
+    handleRouting();
+});
