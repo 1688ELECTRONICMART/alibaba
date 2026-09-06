@@ -40,6 +40,12 @@ let currentUser = null;
 let userData = null;
 let mockProducts = storage.get('cache_products', []);
 let featuredAds = storage.get('cache_adverts', []);
+if (!featuredAds || featuredAds.length === 0) {
+    featuredAds = [
+        { id: 'ad1', title: 'Quality Electronics', short: 'Sourced from top manufacturers', icon: 'fa-microchip', type: 'ad' },
+        { id: 'ad2', title: 'Global Logistics', short: 'Fast delivery to your door', icon: 'fa-truck', type: 'ad' }
+    ];
+}
 let mockCategories = storage.get('cache_categories', [
     { id: 'c1', name: 'Phone', icon: 'fa-mobile-alt' },
     { id: 'c2', name: 'Electronics', icon: 'fa-bolt' },
@@ -607,17 +613,20 @@ const pages = {
                 </div>
             </div>
 
-            <div class="promo-carousel">
+            <div class="promo-carousel" style="${ads.length === 0 ? 'display:none' : ''}">
                 ${ads.map((ad, i) => {
-                    const bgUrl = cloudinaryOptimize(ad.imageUrl, 1000);
-                    const thumbUrl = cloudinaryOptimize(ad.imageUrl, 100);
+                    const bgStyle = ad.imageUrl
+                        ? `background-image: linear-gradient(135deg, rgba(255, 106, 0, 0.8), rgba(219, 75, 0, 0.9)), url('${cloudinaryOptimize(ad.imageUrl, 1000)}');`
+                        : `background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));`;
+                    const thumbUrl = ad.imageUrl ? cloudinaryOptimize(ad.imageUrl, 100) : null;
+
                     return `
-                    <div class="carousel-slide ${i === 0 ? 'active' : ''}" data-ad-id="${ad.id}" style="${ad.imageUrl ? `background-image: linear-gradient(135deg, rgba(255, 106, 0, 0.8), rgba(219, 75, 0, 0.9)), url('${bgUrl}'); background-size: cover; background-position: center; cursor: pointer;` : 'cursor: pointer;'}">
+                    <div class="carousel-slide ${i === 0 ? 'active' : ''}" data-ad-id="${ad.id}" style="${bgStyle} background-size: cover; background-position: center; cursor: pointer;">
                         <div class="carousel-content">
                             <h2>${ad.title || 'Special Promotion'}</h2>
                             <p>${ad.short || ad.link || 'Quality components and electronics'}</p>
                         </div>
-                        ${ad.imageUrl ? `<img src="${thumbUrl}" alt="${ad.title || 'Promo'}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; margin-left: auto; border: 2px solid rgba(255,255,255,0.7); box-shadow: 0 4px 10px rgba(0,0,0,0.15);" onerror="this.style.display='none'">` : `<i class="fas ${ad.icon || 'fa-rectangle-ad'} fa-3x" style="margin-left: auto; opacity: 0.3;"></i>`}
+                        ${ad.imageUrl ? `<img src="${thumbUrl}" alt="Promo" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; margin-left: auto; border: 2px solid rgba(255,255,255,0.7); shadow: 0 4px 10px rgba(0,0,0,0.15);" onerror="this.style.display='none'">` : `<i class="fas ${ad.icon || 'fa-rectangle-ad'} fa-3x" style="margin-left: auto; opacity: 0.3;"></i>`}
                     </div>
                 `}).join('')}
                 ${ads.length > 1 ? `
@@ -1431,15 +1440,8 @@ function navigate(pageId, itemId = null, category = null, sortBy = 'default', up
         }
 
         updateActiveNav(pageId);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     }, delay);
 }
-
-document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-        navigate(item.dataset.page);
-    });
-});
 
 document.getElementById('app-content').addEventListener('click', (event) => {
     const promoSlide = event.target.closest('.promo-carousel .carousel-slide');
@@ -1867,5 +1869,10 @@ rtdb.ref("system/deployment").on("value", (snapshot) => {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            navigate(item.dataset.page);
+        });
+    });
     handleRouting();
 });
