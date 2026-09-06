@@ -496,15 +496,15 @@ function checkout() {
 }
 
 function renderBusinessInfoContent() {
-    if (!userData) return '<p>Loading business info...</p>';
+    if (!userData) return '<p class="empty-state">Loading business info...</p>';
     return `
         <div class="business-info-fields">
             <div class="form-group">
-                <label>Company Name</label>
+                <label for="biz-company">Company Name</label>
                 <input type="text" id="biz-company" value="${userData.companyName || ''}" placeholder="e.g. Acme Electronics Ltd">
             </div>
             <div class="form-group">
-                <label>Business Type</label>
+                <label for="biz-type">Business Type</label>
                 <select id="biz-type">
                     <option value="" ${!userData.businessType ? 'selected' : ''}>Select Type</option>
                     <option value="Manufacturer" ${userData.businessType === 'Manufacturer' ? 'selected' : ''}>Manufacturer</option>
@@ -513,7 +513,7 @@ function renderBusinessInfoContent() {
                     <option value="Agent" ${userData.businessType === 'Agent' ? 'selected' : ''}>Agent</option>
                 </select>
             </div>
-            <button class="mini-btn highlight" onclick="saveBusinessInfo()" style="width: 100%; margin-top: 10px;">Save Business Info</button>
+            <button class="mini-btn highlight" onclick="saveBusinessInfo()">Save Business Info</button>
         </div>
     `;
 }
@@ -1879,6 +1879,12 @@ rtdb.ref("system/deployment").on("value", (snapshot) => {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
+    // Explicitly set persistence
+    if (typeof firebase !== 'undefined' && auth) {
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+            .catch(error => console.error("Persistence Error:", error));
+    }
+
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
             navigate(item.dataset.page);
