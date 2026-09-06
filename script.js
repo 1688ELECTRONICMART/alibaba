@@ -384,7 +384,7 @@ function sendRealMessage(chatId) {
     });
 }
 
-function startChatWithSupplier(itemName, type = 'product') {
+function startChatWithSupplier(itemName, type = 'product', imageUrl = '') {
     if (!currentUser) return navigate('profile');
 
     const chatId = `chat_${currentUser.uid}`;
@@ -397,6 +397,7 @@ function startChatWithSupplier(itemName, type = 'product') {
             text: `Hello, I'm interested in this ${type === 'ad' ? 'advert' : 'product'}: ${itemName}.`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             senderRole: 'user',
+            attachmentUrl: imageUrl,
             fromMe: true
         };
 
@@ -425,7 +426,89 @@ function startChatWithSupplier(itemName, type = 'product') {
     });
 }
 
-function toggleFavorite(itemId, type) {
+function generateInvoice(productId, buyerId) {
+    const product = mockProducts.find(p => String(p.id) === String(productId));
+    const buyer = userData && userData.id === buyerId ? userData : null; // In real app, fetch from Firestore
+
+    const invoiceNo = `INV-${Date.now().toString().slice(-6)}`;
+    const date = new Date().toLocaleDateString();
+
+    const html = `
+        <div class="invoice-container page-enter">
+            <div class="invoice-header">
+                <div class="invoice-logo">
+                    <div class="official-logo-box" style="color: var(--primary-color); font-size: 24px;">1688 Electronic Mart</div>
+                    <p>Shenzhen Electronic Zone, Futian District</p>
+                    <p>Guangdong, China | contact@1688mart.com</p>
+                </div>
+                <div class="invoice-meta">
+                    <h1>PROFORMA INVOICE</h1>
+                    <p><strong>No:</strong> ${invoiceNo}</p>
+                    <p><strong>Date:</strong> ${date}</p>
+                </div>
+            </div>
+
+            <hr class="invoice-hr">
+
+            <div class="invoice-details">
+                <div class="invoice-col">
+                    <h3>BILL TO:</h3>
+                    <p><strong>${buyer?.companyName || buyer?.name || 'Valued Customer'}</strong></p>
+                    <p>${buyer?.businessType || 'B2B Client'}</p>
+                    <p>${buyer?.email || ''}</p>
+                </div>
+                <div class="invoice-col">
+                    <h3>SHIP TO:</h3>
+                    <p>${buyer?.address || 'Pickup at Factory'}</p>
+                    <p>${buyer?.phone || ''}</p>
+                </div>
+            </div>
+
+            <table class="invoice-table">
+                <thead>
+                    <tr>
+                        <th>Item Description</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>${product?.name || 'Electronic Component'}</td>
+                        <td>${product?.moq || 1}</td>
+                        <td>¥${Number(product?.wholesalePrice || product?.price || 0).toFixed(2)}</td>
+                        <td>¥${( (product?.moq || 1) * (product?.wholesalePrice || product?.price || 0) ).toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="invoice-total">
+                <div class="total-row">
+                    <span>Subtotal:</span>
+                    <span>¥${( (product?.moq || 1) * (product?.wholesalePrice || product?.price || 0) ).toFixed(2)}</span>
+                </div>
+                <div class="total-row grand-total">
+                    <span>Total Amount:</span>
+                    <span>¥${( (product?.moq || 1) * (product?.wholesalePrice || product?.price || 0) ).toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div class="invoice-footer">
+                <p><strong>Terms:</strong> 100% T/T Advance Payment</p>
+                <p><strong>Note:</strong> Goods sourced directly from manufacturer. QC verified.</p>
+                <div class="official-stamp">
+                    <p>Official 1688 Stamp</p>
+                </div>
+                <button class="primary-btn no-print" onclick="window.print()">Print Invoice</button>
+                <button class="secondary-btn no-print" onclick="navigate('home')">Back to Mart</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('app-content').innerHTML = html;
+    window.location.hash = `#/invoice/${productId}`;
+}
     const strId = String(itemId);
     const isFav = favorites.some(f => String(f.id) === strId);
 
@@ -800,6 +883,7 @@ const pages = {
                 <div class="chat-body" id="chat-body">
                     ${chat.messages.map(m => `
                         <div class="msg-bubble ${m.senderRole === 'user' ? 'me' : 'them'}">
+                            ${m.attachmentUrl ? `<div class="msg-attachment"><img src="${cloudinaryOptimize(m.attachmentUrl, 400)}" alt="Product"></div>` : ''}
                             <div class="msg-text">${m.text}</div>
                             <div class="msg-time">${m.time}</div>
                         </div>
@@ -1432,6 +1516,8 @@ function navigate(pageId, itemId = null, category = null, sortBy = 'default', up
                 content.innerHTML = pages.home(itemId || '', category, sortBy);
             } else if (pageId === 'chat' && itemId) {
                 content.innerHTML = pages.chat(itemId);
+            } else if (pageId === 'invoice' && itemId) {
+                generateInvoice(itemId, currentUser?.uid);
             } else if (pageId === 'checkout-success') {
                 content.innerHTML = pages['checkout-success'](itemId);
             } else if (pages[pageId]) {
@@ -1496,7 +1582,8 @@ document.getElementById('app-content').addEventListener('click', (event) => {
         if (type === 'ad') {
             const ad = featuredAds.find(a => String(a.id) === String(id));
             if (ad) {
-                startChatWithSupplier(ad.title || 'Special Offer', 'ad');
+                const img = ad.imageUrl || (ad.images && ad.images[0]) || '';
+                startChatWithSupplier(ad.title || 'Special Offer', 'ad', img);
             }
         } else {
             const product = mockProducts.find(p => String(p.id) === String(id));
@@ -1504,7 +1591,8 @@ document.getElementById('app-content').addEventListener('click', (event) => {
                 const prodName = product.name || 'Electronic Item';
                 const price = product.price ? ` (¥${Number(product.price).toFixed(2)})` : '';
                 const comp = product.company ? ` from ${product.company}` : '';
-                startChatWithSupplier(`${prodName}${price}${comp}`, 'prod');
+                const img = (product.images && product.images.length > 0) ? product.images[0] : (product.imageUrl || '');
+                startChatWithSupplier(`${prodName}${price}${comp}`, 'prod', img);
             }
         }
         return;
@@ -1866,6 +1954,7 @@ auth.onAuthStateChanged((user) => {
                             if (updatedChat) {
                                 document.getElementById('chat-body').innerHTML = updatedChat.messages.map(m => `
                                     <div class="msg-bubble ${m.senderRole === 'user' ? 'me' : 'them'}">
+                                        ${m.attachmentUrl ? `<div class="msg-attachment"><img src="${cloudinaryOptimize(m.attachmentUrl, 400)}" alt="Product"></div>` : ''}
                                         <div class="msg-text">${m.text}</div>
                                         <div class="msg-time">${m.time}</div>
                                     </div>

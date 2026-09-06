@@ -541,10 +541,126 @@ input {
     transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-.primary-btn,
-.go-shopping {
-    background-color: var(--white);
+/* Invoice Styles */
+.invoice-container {
+    background: var(--white);
+    padding: 40px;
+    min-height: 100vh;
+}
+
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+}
+
+.invoice-logo p {
+    font-size: 12px;
+    color: var(--light-text);
+}
+
+.invoice-meta h1 {
     color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.invoice-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin: 30px 0;
+}
+
+.invoice-col h3 {
+    font-size: 14px;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+.invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 30px 0;
+}
+
+.invoice-table th {
+    background: #f8f8f8;
+    text-align: left;
+    padding: 12px;
+    font-size: 14px;
+}
+
+.invoice-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.invoice-total {
+    margin-left: auto;
+    width: 250px;
+}
+
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+}
+
+.grand-total {
+    border-top: 2px solid var(--primary-color);
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--primary-color);
+    margin-top: 10px;
+}
+
+.invoice-footer {
+    margin-top: 50px;
+    font-size: 12px;
+    color: #666;
+}
+
+.official-stamp {
+    width: 150px;
+    height: 150px;
+    border: 3px solid rgba(255, 96, 0, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: rgba(255, 96, 0, 0.3);
+    transform: rotate(-15deg);
+    margin: 20px 0;
+}
+
+/* Chat Attachment */
+.msg-attachment {
+    max-width: 200px;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.msg-attachment img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+@media print {
+    .header, .bottom-nav, .no-print {
+        display: none !important;
+    }
+    .invoice-container {
+        padding: 0;
+    }
+    body {
+        background: white;
+    }
+}
 }
 
 .secondary-btn,
