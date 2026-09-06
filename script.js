@@ -1488,12 +1488,15 @@ document.getElementById('app-content').addEventListener('click', (event) => {
             const ad = featuredAds.find(a => String(a.id) === String(id));
             if (ad) {
                 startChatWithSupplier(ad.title || 'Special Offer', 'ad');
-                return;
             }
-        }
-
-        if (addToCart(id, type)) {
-            navigate('cart');
+        } else {
+            const product = mockProducts.find(p => String(p.id) === String(id));
+            if (product) {
+                const prodName = product.name || 'Electronic Item';
+                const price = product.price ? ` (¥${Number(product.price).toFixed(2)})` : '';
+                const comp = product.company ? ` from ${product.company}` : '';
+                startChatWithSupplier(`${prodName}${price}${comp}`, 'prod');
+            }
         }
         return;
     }
