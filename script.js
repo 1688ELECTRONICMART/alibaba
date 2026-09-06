@@ -53,7 +53,14 @@ let mockCategories = storage.get('cache_categories', [
     { id: 'c4', name: 'Vehicle', icon: 'fa-car' },
     { id: 'c5', name: 'Laptops', icon: 'fa-laptop' }
 ]);
-let userChats = [];
+const userChats = storage.get('cache_chats', []);
+
+// Audio Preload
+const msgSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
+
+function playNotificationSound() {
+    try { msgSound.play().catch(e => console.warn("Sound blocked:", e)); } catch(e) {}
+}
 
 function signInWithGoogle() {
     auth.signInWithPopup(provider).catch(error => {
@@ -361,6 +368,7 @@ function sendRealMessage(chatId) {
             sender: currentUser.displayName || 'Customer',
             text: text,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            senderRole: 'user',
             fromMe: true
         };
 
@@ -388,6 +396,7 @@ function startChatWithSupplier(itemName, type = 'product') {
             sender: currentUser.displayName,
             text: `Hello, I'm interested in this ${type === 'ad' ? 'advert' : 'product'}: ${itemName}.`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            senderRole: 'user',
             fromMe: true
         };
 
@@ -790,7 +799,7 @@ const pages = {
                 </div>
                 <div class="chat-body" id="chat-body">
                     ${chat.messages.map(m => `
-                        <div class="msg-bubble ${m.fromMe ? 'me' : 'them'}">
+                        <div class="msg-bubble ${m.senderRole === 'user' ? 'me' : 'them'}">
                             <div class="msg-text">${m.text}</div>
                             <div class="msg-time">${m.time}</div>
                         </div>
@@ -1837,9 +1846,46 @@ auth.onAuthStateChanged((user) => {
         rtdb.ref("chats").on("value", (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                userChats = Object.values(data).filter(chat => chat.userName === user.displayName || chat.id.includes(user.uid));
+                const oldChats = JSON.parse(JSON.stringify(userChats));
+                userChats.length = 0;
+                const newItems = Object.values(data).filter(chat => chat.userName === user.displayName || chat.id.includes(user.uid));
+                userChats.push(...newItems);
+                storage.set('cache_chats', userChats);
+
                 const content = document.getElementById('app-content');
-                if (content && content.querySelector('.message-page')) navigate('message');
+
+                // Detect if user is on message page or chat page
+                if (content) {
+                    if (content.querySelector('.message-page')) {
+                        content.innerHTML = pages.message();
+                    } else {
+                        const chatWindow = content.querySelector('.chat-window');
+                        if (chatWindow) {
+                            const currentChatId = window.location.hash.split('/').pop();
+                            const updatedChat = userChats.find(c => c.id === currentChatId);
+                            if (updatedChat) {
+                                document.getElementById('chat-body').innerHTML = updatedChat.messages.map(m => `
+                                    <div class="msg-bubble ${m.senderRole === 'user' ? 'me' : 'them'}">
+                                        <div class="msg-text">${m.text}</div>
+                                        <div class="msg-time">${m.time}</div>
+                                    </div>
+                                `).join('');
+                                // Scroll to bottom
+                                const chatBody = document.getElementById('chat-body');
+                                chatBody.scrollTop = chatBody.scrollHeight;
+                            }
+                        }
+                    }
+                }
+
+                // Push Notification Logic
+                newItems.forEach(chat => {
+                    const oldChat = oldChats.find(oc => oc.id === chat.id);
+                    if (oldChat && chat.userUnreadCount > oldChat.userUnreadCount) {
+                        playNotificationSound();
+                        showNotificationToast("New Message", `Admin: ${chat.lastMessage}`);
+                    }
+                });
             }
         });
     }
