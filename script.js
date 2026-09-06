@@ -1803,6 +1803,14 @@ window.addEventListener('popstate', handleRouting);
 
 auth.onAuthStateChanged((user) => {
     currentUser = user;
+
+    // Refresh UI if user is on an auth-dependent page
+    const content = document.getElementById('app-content');
+    if (content) {
+        if (content.querySelector('.profile-page')) navigate('profile', null, null, 'default', false);
+        if (content.querySelector('.message-page')) navigate('message', null, null, 'default', false);
+    }
+
     if (user) {
         const userRef = db.collection("users").doc(user.uid);
         userRef.set({
@@ -1817,7 +1825,9 @@ auth.onAuthStateChanged((user) => {
             if (doc.exists) {
                 userData = doc.data();
                 const businessSection = document.getElementById('business-info-section');
-                if (businessSection) businessSection.innerHTML = renderBusinessInfoContent();
+                if (businessSection) {
+                    businessSection.innerHTML = renderBusinessInfoContent();
+                }
             }
         });
 
