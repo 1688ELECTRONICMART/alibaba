@@ -542,7 +542,11 @@ window.openInvoiceModal = function(invoiceId) {
 
             <div class="invoice-sign-section">
                 <div class="sign-box">
-                    <div class="official-stamp" style="margin: 0 auto 10px;">1688 STAMP</div>
+                    <div class="official-stamp" style="margin: 0 auto 10px;">
+                        <span style="font-size: 11px;">1688 ELECTRONIC MART</span>
+                        <span style="font-size: 10px; margin: 4px 0; border-top: 1px solid rgba(255, 69, 0, 0.3); border-bottom: 1px solid rgba(255, 69, 0, 0.3); padding: 2px 0;">QC VERIFIED</span>
+                        <span class="stamp-date">${new Date().toLocaleString()}</span>
+                    </div>
                     <p>AUTHORIZED SIGNATURE</p>
                     <p>1688 ELECTRONIC MART</p>
                 </div>
