@@ -502,11 +502,90 @@ input {
     transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-/* Invoice Styles */
-.invoice-container {
-    background: var(--white);
+/* Invoice Card in Chat */
+.invoice-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    min-width: 220px;
+}
+
+.invoice-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.invoice-card-header i {
+    font-size: 24px;
+    color: var(--primary-color);
+}
+
+.invoice-card-header strong {
+    display: block;
+    font-size: 14px;
+}
+
+.invoice-card-header small {
+    color: #6c757d;
+    font-size: 11px;
+}
+
+.view-invoice-btn {
+    width: 100%;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Modal Overlay */
+.invoice-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.invoice-modal-content {
+    background: white;
+    width: 100%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 16px;
+    position: relative;
     padding: 40px;
-    min-height: 100vh;
+}
+
+.close-modal {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 30px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #999;
+}
+
+/* Invoice Paper (within modal) */
+.invoice-paper {
+    background: white;
 }
 
 .invoice-header {
@@ -537,24 +616,6 @@ input {
     border-bottom: 2px solid var(--primary-color);
     padding-bottom: 5px;
     margin-bottom: 10px;
-}
-
-.invoice-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 30px 0;
-}
-
-.invoice-table th {
-    background: #f8f8f8;
-    text-align: left;
-    padding: 12px;
-    font-size: 14px;
-}
-
-.invoice-table td {
-    padding: 12px;
-    border-bottom: 1px solid var(--border-color);
 }
 
 .invoice-total {
@@ -612,11 +673,16 @@ input {
 }
 
 @media print {
-    .header, .bottom-nav, .no-print {
+    .header, .bottom-nav, .no-print, .close-modal {
         display: none !important;
     }
-    .invoice-container {
+    .invoice-modal-overlay {
+        position: absolute;
+        background: white;
+    }
+    .invoice-modal-content {
         padding: 0;
+        max-height: none;
     }
     body {
         background: white;

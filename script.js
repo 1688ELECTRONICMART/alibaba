@@ -430,15 +430,33 @@ function startChatWithSupplier(itemName, type = 'product', imageUrl = '') {
     });
 }
 
-function generateInvoice(productId, buyerId) {
-    const product = mockProducts.find(p => String(p.id) === String(productId));
-    const buyer = userData && userData.id === buyerId ? userData : null; // In real app, fetch from Firestore
+window.openInvoiceModal = function(invoiceId) {
+    // For now, use the current active chat to find the product details
+    const currentChatId = window.location.hash.split('/').pop();
+    const chat = userChats.find(c => c.id === currentChatId);
+    const lastProductMsg = chat?.messages.findLast(m => m.attachmentUrl && m.senderRole === 'user');
 
-    const invoiceNo = `INV-${Date.now().toString().slice(-6)}`;
+    // Extract product ID or info from the message text
+    // Example text: "Hello, I'm interested in this product: Apple Macbook Pro 2015 (¥737.00) from Apple."
+    const productInfo = lastProductMsg?.text || "B2B Order";
+
+    const modal = document.createElement('div');
+    modal.id = 'invoice-modal';
+    modal.className = 'invoice-modal-overlay';
+    modal.innerHTML = `
+        <div class="invoice-modal-content">
+            <button class="close-modal" onclick="closeInvoiceModal()">&times;</button>
+            <div id="invoice-view-area"></div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Fill the invoice view area
+    const invoiceNo = invoiceId;
     const date = new Date().toLocaleDateString();
 
     const html = `
-        <div class="invoice-container page-enter">
+        <div class="invoice-paper">
             <div class="invoice-header">
                 <div class="invoice-logo">
                     <div class="official-logo-box" style="color: var(--primary-color); font-size: 24px;">1688 Electronic Mart</div>
@@ -457,62 +475,45 @@ function generateInvoice(productId, buyerId) {
             <div class="invoice-details">
                 <div class="invoice-col">
                     <h3>BILL TO:</h3>
-                    <p><strong>${buyer?.companyName || buyer?.name || 'Valued Customer'}</strong></p>
-                    <p>${buyer?.businessType || 'B2B Client'}</p>
-                    <p>${buyer?.email || ''}</p>
+                    <p><strong>${userData?.companyName || userData?.name || 'Valued Customer'}</strong></p>
+                    <p>${userData?.businessType || 'B2B Client'}</p>
+                    <p>${userData?.email || ''}</p>
                 </div>
                 <div class="invoice-col">
                     <h3>SHIP TO:</h3>
-                    <p>${buyer?.address || 'Pickup at Factory'}</p>
-                    <p>${buyer?.phone || ''}</p>
+                    <p>${userData?.address || 'Pickup at Factory'}</p>
+                    <p>${userData?.phone || ''}</p>
                 </div>
             </div>
 
-            <table class="invoice-table">
-                <thead>
-                    <tr>
-                        <th>Item Description</th>
-                        <th>Qty</th>
-                        <th>Unit Price</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>${product?.name || 'Electronic Component'}</td>
-                        <td>${product?.moq || 1}</td>
-                        <td>¥${Number(product?.wholesalePrice || product?.price || 0).toFixed(2)}</td>
-                        <td>¥${( (product?.moq || 1) * (product?.wholesalePrice || product?.price || 0) ).toFixed(2)}</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="invoice-item-summary">
+                <p><strong>Item:</strong> ${productInfo}</p>
+            </div>
 
-            <div class="invoice-total">
-                <div class="total-row">
-                    <span>Subtotal:</span>
-                    <span>¥${( (product?.moq || 1) * (product?.wholesalePrice || product?.price || 0) ).toFixed(2)}</span>
-                </div>
+            <div class="invoice-total" style="margin-top: 30px;">
                 <div class="total-row grand-total">
                     <span>Total Amount:</span>
-                    <span>¥${( (product?.moq || 1) * (product?.wholesalePrice || product?.price || 0) ).toFixed(2)}</span>
+                    <span>As Negotiated</span>
                 </div>
             </div>
 
             <div class="invoice-footer">
                 <p><strong>Terms:</strong> 100% T/T Advance Payment</p>
-                <p><strong>Note:</strong> Goods sourced directly from manufacturer. QC verified.</p>
+                <p><strong>Note:</strong> Sourced directly from factory. QC verified.</p>
                 <div class="official-stamp">
-                    <p>Official 1688 Stamp</p>
+                    <p>1688 Stamp</p>
                 </div>
-                <button class="primary-btn no-print" onclick="window.print()">Print Invoice</button>
-                <button class="secondary-btn no-print" onclick="navigate('home')">Back to Mart</button>
+                <button class="primary-btn no-print" onclick="window.print()" style="background: var(--primary-color); color: white;">Print Invoice</button>
             </div>
         </div>
     `;
+    document.getElementById('invoice-view-area').innerHTML = html;
+};
 
-    document.getElementById('app-content').innerHTML = html;
-    window.location.hash = `#/invoice/${productId}`;
-}
+window.closeInvoiceModal = function() {
+    const modal = document.getElementById('invoice-modal');
+    if (modal) modal.remove();
+};
 
 function toggleFavorite(itemId, type) {
     const strId = String(itemId);
@@ -894,8 +895,21 @@ const pages = {
                 <div class="chat-body" id="chat-body">
                     ${chat.messages.map(m => `
                         <div class="msg-bubble ${m.senderRole === 'user' ? 'me' : 'them'}">
-                            ${m.attachmentUrl ? `<div class="msg-attachment"><img src="${cloudinaryOptimize(m.attachmentUrl, 400)}" alt="Product"></div>` : ''}
-                            <div class="msg-text">${m.text}</div>
+                            ${m.invoiceId ? `
+                                <div class="invoice-card">
+                                    <div class="invoice-card-header">
+                                        <i class="fas fa-file-invoice-dollar"></i>
+                                        <div>
+                                            <strong>Proforma Invoice</strong>
+                                            <small>${m.invoiceId}</small>
+                                        </div>
+                                    </div>
+                                    <button class="view-invoice-btn" onclick="openInvoiceModal('${m.invoiceId}')">View Invoice</button>
+                                </div>
+                            ` : `
+                                ${m.attachmentUrl ? `<div class="msg-attachment"><img src="${cloudinaryOptimize(m.attachmentUrl, 400)}" alt="Product"></div>` : ''}
+                                <div class="msg-text">${m.text}</div>
+                            `}
                             <div class="msg-time">${m.time}</div>
                         </div>
                     `).join('')}
@@ -1965,8 +1979,21 @@ auth.onAuthStateChanged((user) => {
                             if (updatedChat) {
                                 document.getElementById('chat-body').innerHTML = updatedChat.messages.map(m => `
                                     <div class="msg-bubble ${m.senderRole === 'user' ? 'me' : 'them'}">
-                                        ${m.attachmentUrl ? `<div class="msg-attachment"><img src="${cloudinaryOptimize(m.attachmentUrl, 400)}" alt="Product"></div>` : ''}
-                                        <div class="msg-text">${m.text}</div>
+                                        ${m.invoiceId ? `
+                                            <div class="invoice-card">
+                                                <div class="invoice-card-header">
+                                                    <i class="fas fa-file-invoice-dollar"></i>
+                                                    <div>
+                                                        <strong>Proforma Invoice</strong>
+                                                        <small>${m.invoiceId}</small>
+                                                    </div>
+                                                </div>
+                                                <button class="view-invoice-btn" onclick="openInvoiceModal('${m.invoiceId}')">View Invoice</button>
+                                            </div>
+                                        ` : `
+                                            ${m.attachmentUrl ? `<div class="msg-attachment"><img src="${cloudinaryOptimize(m.attachmentUrl, 400)}" alt="Product"></div>` : ''}
+                                            <div class="msg-text">${m.text}</div>
+                                        `}
                                         <div class="msg-time">${m.time}</div>
                                     </div>
                                 `).join('');
