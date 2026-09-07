@@ -431,14 +431,20 @@ function startChatWithSupplier(itemName, type = 'product', imageUrl = '') {
 }
 
 window.openInvoiceModal = function(invoiceId) {
-    // For now, use the current active chat to find the product details
     const currentChatId = window.location.hash.split('/').pop();
     const chat = userChats.find(c => c.id === currentChatId);
     const lastProductMsg = chat?.messages.findLast(m => m.attachmentUrl && m.senderRole === 'user');
 
-    // Extract product ID or info from the message text
-    // Example text: "Hello, I'm interested in this product: Apple Macbook Pro 2015 (¥737.00) from Apple."
-    const productInfo = lastProductMsg?.text || "B2B Order";
+    // Enhanced Parsing
+    const text = lastProductMsg?.text || "B2B Order: Electronic Components";
+    const nameMatch = text.match(/product:\s*(.*?)(?=\s*\(|from|$)/i);
+    const priceMatch = text.match(/¥([\d.]+)/);
+    const companyMatch = text.match(/from\s*(.*?)(?=\.|$)/i);
+
+    const prodName = nameMatch ? nameMatch[1].trim() : "Electronic Components Bundle";
+    const unitPrice = priceMatch ? `¥${priceMatch[1]}` : "As Negotiated";
+    const totalAmount = priceMatch ? `¥${priceMatch[1]}` : "As Negotiated";
+    const brand = companyMatch ? companyMatch[1].trim() : "Verified OEM";
 
     const modal = document.createElement('div');
     modal.id = 'invoice-modal';
@@ -451,59 +457,104 @@ window.openInvoiceModal = function(invoiceId) {
     `;
     document.body.appendChild(modal);
 
-    // Fill the invoice view area
-    const invoiceNo = invoiceId;
-    const date = new Date().toLocaleDateString();
-
     const html = `
         <div class="invoice-paper">
             <div class="invoice-header">
                 <div class="invoice-logo">
-                    <div class="official-logo-box" style="color: var(--primary-color); font-size: 24px;">1688 Electronic Mart</div>
-                    <p>Shenzhen Electronic Zone, Futian District</p>
-                    <p>Guangdong, China | contact@1688mart.com</p>
+                    <div class="official-logo-box" style="color: var(--primary-color); font-size: 24px; font-weight: 800;">1688 Electronic Mart</div>
+                    <p><strong>Factory Address:</strong> Block B, North Huaqiang Road,</p>
+                    <p>Futian District, Shenzhen, Guangdong, China 518000</p>
+                    <p><strong>Tel:</strong> +86 755 8899 0011 | <strong>Email:</strong> sales@1688mart.com</p>
                 </div>
-                <div class="invoice-meta">
-                    <h1>PROFORMA INVOICE</h1>
-                    <p><strong>No:</strong> ${invoiceNo}</p>
-                    <p><strong>Date:</strong> ${date}</p>
+                <div class="invoice-meta" style="text-align: right;">
+                    <h1 style="font-size: 28px; margin-bottom: 5px; color: #333;">PROFORMA INVOICE</h1>
+                    <p><strong>Invoice No:</strong> ${invoiceId}</p>
+                    <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                    <p><strong>Terms:</strong> FOB Shenzhen</p>
                 </div>
             </div>
 
-            <hr class="invoice-hr">
+            <hr style="border: 0; border-top: 2px solid #333; margin: 20px 0;">
 
             <div class="invoice-details">
                 <div class="invoice-col">
                     <h3>BILL TO:</h3>
-                    <p><strong>${userData?.companyName || userData?.name || 'Valued Customer'}</strong></p>
-                    <p>${userData?.businessType || 'B2B Client'}</p>
+                    <p><strong>${userData?.companyName || userData?.name || 'Valued Buyer'}</strong></p>
+                    <p>${userData?.businessType || 'Verified Member'}</p>
                     <p>${userData?.email || ''}</p>
                 </div>
                 <div class="invoice-col">
                     <h3>SHIP TO:</h3>
-                    <p>${userData?.address || 'Pickup at Factory'}</p>
-                    <p>${userData?.phone || ''}</p>
+                    <p>${userData?.address || 'To be specified by buyer'}</p>
+                    <p><strong>Phone:</strong> ${userData?.phone || 'N/A'}</p>
                 </div>
             </div>
 
-            <div class="invoice-item-summary">
-                <p><strong>Item:</strong> ${productInfo}</p>
-            </div>
+            <table class="invoice-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">NO.</th>
+                        <th>DESCRIPTION & SPECIFICATIONS</th>
+                        <th style="width: 60px;">QTY</th>
+                        <th style="width: 120px;">UNIT PRICE</th>
+                        <th style="width: 120px;">AMOUNT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>
+                            <strong>${prodName}</strong><br>
+                            <small style="color: #666;">Brand: ${brand} | Condition: New/Original</small>
+                        </td>
+                        <td>1</td>
+                        <td>${unitPrice}</td>
+                        <td>${totalAmount}</td>
+                    </tr>
+                </tbody>
+            </table>
 
-            <div class="invoice-total" style="margin-top: 30px;">
-                <div class="total-row grand-total">
-                    <span>Total Amount:</span>
-                    <span>As Negotiated</span>
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-top: 30px;">
+                <div class="invoice-bank-section" style="width: 60%; margin: 0;">
+                    <h3 style="font-size: 13px; margin-bottom: 10px;">REMITTANCE INSTRUCTIONS (T/T):</h3>
+                    <div class="bank-grid">
+                        <label>Beneficiary:</label> <span>1688 ELECTRONIC MART TECHNOLOGY CO., LTD</span>
+                        <label>Bank Name:</label> <span>HSBC BANK (CHINA) SHENZHEN BRANCH</span>
+                        <label>Bank Address:</label> <span>Huaqiang North, Shenzhen, GD, China</span>
+                        <label>Account No:</label> <span>8829 1102 3344 5566</span>
+                        <label>SWIFT Code:</label> <span>HSBCCNBSZ</span>
+                    </div>
+                </div>
+
+                <div class="invoice-total" style="width: 30%; margin: 0;">
+                    <div class="total-row"><span>Subtotal:</span> <span>${totalAmount}</span></div>
+                    <div class="total-row"><span>Tax (0%):</span> <span>¥0.00</span></div>
+                    <div class="total-row grand-total">
+                        <span>TOTAL:</span> <span>${totalAmount}</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="invoice-footer">
-                <p><strong>Terms:</strong> 100% T/T Advance Payment</p>
-                <p><strong>Note:</strong> Sourced directly from factory. QC verified.</p>
-                <div class="official-stamp">
-                    <p>1688 Stamp</p>
+            <div style="margin-top: 30px; font-size: 12px; color: #555;">
+                <p><strong>Validity:</strong> This quote is valid for 7 business days.</p>
+                <p><strong>Lead Time:</strong> 3-5 business days upon payment confirmation.</p>
+            </div>
+
+            <div class="invoice-sign-section">
+                <div class="sign-box">
+                    <div class="official-stamp" style="margin: 0 auto 10px;">1688 STAMP</div>
+                    <p>AUTHORIZED SIGNATURE</p>
+                    <p>1688 ELECTRONIC MART</p>
                 </div>
-                <button class="primary-btn no-print" onclick="window.print()" style="background: var(--primary-color); color: white;">Print Invoice</button>
+                <div class="sign-box">
+                    <div style="height: 60px;"></div>
+                    <p>ACCEPTED BY BUYER</p>
+                    <p>(SIGNATURE & STAMP)</p>
+                </div>
+            </div>
+
+            <div class="invoice-footer no-print" style="text-align: center; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+                <button class="primary-btn" onclick="window.print()" style="background: var(--primary-color); color: white; padding: 12px 30px; font-size: 14px;">Download / Print Invoice</button>
             </div>
         </div>
     `;
