@@ -22,6 +22,10 @@ if (typeof firebase === 'undefined') {
     var db = firebase.firestore();
     var rtdb = firebase.database();
     var auth = firebase.auth();
+
+    // Set Persistence immediately after initialization
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .catch(error => console.error("Persistence Error:", error));
 }
 var provider = (typeof firebase.auth !== 'undefined') ? new firebase.auth.GoogleAuthProvider() : null;
 
@@ -509,6 +513,8 @@ function generateInvoice(productId, buyerId) {
     document.getElementById('app-content').innerHTML = html;
     window.location.hash = `#/invoice/${productId}`;
 }
+
+function toggleFavorite(itemId, type) {
     const strId = String(itemId);
     const isFav = favorites.some(f => String(f.id) === strId);
 
@@ -590,14 +596,16 @@ function checkout() {
 function renderBusinessInfoContent() {
     if (!userData) return '<p class="empty-state">Loading business info...</p>';
     return `
-        <div class="business-info-fields">
-            <div class="form-group">
-                <label for="biz-company">Company Name</label>
-                <input type="text" id="biz-company" value="${userData.companyName || ''}" placeholder="e.g. Acme Electronics Ltd">
+        <div class="business-info-fields" style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 12px; font-weight: 700; color: #888;">Company Name</label>
+                <input type="text" id="biz-company" value="${userData.companyName || ''}"
+                    style="padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; background: #f9f9f9; outline: none;"
+                    placeholder="e.g. Acme Electronics Ltd">
             </div>
-            <div class="form-group">
-                <label for="biz-type">Business Type</label>
-                <select id="biz-type">
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 12px; font-weight: 700; color: #888;">Business Type</label>
+                <select id="biz-type" style="padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; background: #f9f9f9; outline: none; cursor: pointer;">
                     <option value="" ${!userData.businessType ? 'selected' : ''}>Select Type</option>
                     <option value="Manufacturer" ${userData.businessType === 'Manufacturer' ? 'selected' : ''}>Manufacturer</option>
                     <option value="Wholesaler" ${userData.businessType === 'Wholesaler' ? 'selected' : ''}>Wholesaler</option>
@@ -605,7 +613,10 @@ function renderBusinessInfoContent() {
                     <option value="Agent" ${userData.businessType === 'Agent' ? 'selected' : ''}>Agent</option>
                 </select>
             </div>
-            <button class="mini-btn highlight" onclick="saveBusinessInfo()">Save Business Info</button>
+            <button class="primary-btn highlight" onclick="saveBusinessInfo()"
+                style="width: 100%; padding: 14px; border-radius: 12px; background: #ff6000; color: white; border: none; font-weight: 800; cursor: pointer; transition: 0.2s;">
+                Save Business Info
+            </button>
         </div>
     `;
 }
@@ -2017,12 +2028,6 @@ rtdb.ref("system/deployment").on("value", (snapshot) => {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Explicitly set persistence
-    if (typeof firebase !== 'undefined' && auth) {
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-            .catch(error => console.error("Persistence Error:", error));
-    }
-
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
             navigate(item.dataset.page);
