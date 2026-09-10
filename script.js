@@ -42,6 +42,22 @@ const storage = {
 
 let currentUser = null;
 let userData = null;
+let shopConfig = {
+    name: "1688 Electronic Mart",
+    location: "Shenzhen, China",
+    rating: 4.8
+};
+
+db.collection("system").doc("shop_profile").onSnapshot(doc => {
+    if (doc.exists) {
+        shopConfig = {
+            name: doc.data().name || shopConfig.name,
+            location: doc.data().location || shopConfig.location,
+            rating: doc.data().rating || shopConfig.rating
+        };
+        document.querySelectorAll('.official-logo-box').forEach(el => el.textContent = shopConfig.name);
+    }
+});
 let mockProducts = storage.get('cache_products', []);
 let featuredAds = storage.get('cache_adverts', []);
 if (!featuredAds || featuredAds.length === 0) {
@@ -2003,7 +2019,14 @@ auth.onAuthStateChanged((user) => {
 
         userRef.onSnapshot(doc => {
             if (doc.exists) {
+                const isNewLogin = !userData;
                 userData = doc.data();
+
+                // Returning user auto-navigation
+                if (isNewLogin && userData.companyName && window.location.hash === '#/profile') {
+                    navigate('home');
+                }
+
                 const businessSection = document.getElementById('business-info-section');
                 if (businessSection) {
                     businessSection.innerHTML = renderBusinessInfoContent();
