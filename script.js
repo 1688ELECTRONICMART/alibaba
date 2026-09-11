@@ -136,21 +136,38 @@ function renderHomePageIfActive() {
     }
 }
 
-// Hot Update Engine Listener
+// Hot Update Engine Listener - Version Tracking
 rtdb.ref("system/deployment").on("value", (snapshot) => {
     const data = snapshot.val();
-    if (!data) return;
+    checkUpdate(data);
+});
 
-    // Check if this is a new update (ignoring the first load)
-    const now = new Date().getTime();
-    if (now - data.last_updated_at < 30000) { // Only if updated in the last 30 seconds
-        console.log("Hot update signal received:", data);
+// Periodically check for updates even if Firebase listener missed something
+setInterval(() => {
+    rtdb.ref("system/deployment").once("value").then((snapshot) => {
+        checkUpdate(snapshot.val());
+    });
+}, 1800000); // Every 30 minutes
+
+function checkUpdate(data) {
+    if (!data || !data.last_updated_at) return;
+
+    const lastApplied = storage.get('last_applied_version', 0);
+    const serverVersion = data.last_updated_at;
+
+    if (serverVersion > lastApplied) {
+        console.log("New version detected! Local:", lastApplied, "Server:", serverVersion);
         applyHotPatch(data);
     }
-});
+}
 
 function applyHotPatch(data) {
     const isForce = data.force_reload;
+    const serverVersion = data.last_updated_at;
+
+    // Immediately mark as applied to prevent loops
+    storage.set('last_applied_version', serverVersion);
+
     showNotificationToast(
         isForce ? "Critical Update" : "System Update",
         isForce ? "A mandatory update is being applied..." : "Applying live improvements..."
@@ -163,11 +180,22 @@ function applyHotPatch(data) {
     setTimeout(() => progress.style.width = '100%', 50);
 
     if (isForce) {
-        // Force Reload with countdown
+        // Force Hard Reload with cache busting
         setTimeout(() => {
             progress.style.background = '#ff4d4f';
             showNotificationToast("Reloading", "Refreshing to latest version...");
-            setTimeout(() => location.reload(), 1500);
+
+            // Clear Service Worker Cache if possible
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+            }
+
+            setTimeout(() => {
+                // Append version to URL to force browser to bypass its internal cache
+                const url = new URL(window.location.href);
+                url.searchParams.set('v', serverVersion);
+                window.location.href = url.toString();
+            }, 1000);
         }, 1000);
         return;
     }
@@ -176,7 +204,7 @@ function applyHotPatch(data) {
     const links = document.getElementsByTagName('link');
     for (let link of links) {
         if (link.rel === 'stylesheet' && link.href.includes('style.css')) {
-            link.href = 'style.css?v=' + data.last_updated_at;
+            link.href = 'style.css?v=' + serverVersion;
             break;
         }
     }
@@ -185,14 +213,13 @@ function applyHotPatch(data) {
     if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
             type: 'HOT_PATCH',
-            version: data.last_updated_at
+            version: serverVersion
         });
     }
 
     // 3. Trigger SW Check
     navigator.serviceWorker.ready.then(reg => reg.update());
-
-    // 3. Re-render Current View
+}    // 3. Re-render Current View
     const currentPath = document.querySelector('.nav-item.active')?.dataset.page || 'home';
     setTimeout(() => {
         navigate(currentPath);
@@ -2187,16 +2214,6 @@ db.collection("adverts").onSnapshot((snapshot) => {
     }
 }, (err) => {
     console.warn("Firestore ads offline:", err);
-});
-
-// Deployment updates
-rtdb.ref("system/deployment").on("value", (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-        const now = new Date().getTime();
-        // If it's a recent signal, apply patch
-        if (now - data.last_updated_at < 60000) applyHotPatch(data);
-    }
 });
 
 // Initialization

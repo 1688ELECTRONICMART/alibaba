@@ -68,5 +68,10 @@ self.addEventListener('message', (event) => {
         caches.open(CACHE_NAME).then((cache) => {
             cache.addAll(ASSETS);
         });
+    } else if (event.data && event.data.type === 'CLEAR_CACHE') {
+        // Delete all caches to force clean slate
+        caches.keys().then((keys) => {
+            return Promise.all(keys.map((key) => caches.delete(key)));
+        });
     }
 });
