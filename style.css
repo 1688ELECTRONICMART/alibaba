@@ -1990,6 +1990,16 @@ input {
     background: #fafafa;
 }
 
+.install-prompt-item {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.install-prompt-item:hover {
+    background: #fff0db !important;
+    transform: scale(1.02);
+}
+
 /* Utility */
 .empty-state {
     text-align: center;

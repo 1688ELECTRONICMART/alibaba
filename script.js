@@ -42,6 +42,43 @@ const storage = {
 
 let currentUser = null;
 let userData = null;
+let deferredPrompt = null; // To store the install prompt
+
+// PWA Install Event Listener
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    // Refresh profile page if active to show the install button
+    renderProfilePageIfActive();
+});
+
+window.addEventListener('appinstalled', (evt) => {
+    console.log('1688 App was installed');
+    deferredPrompt = null;
+    renderProfilePageIfActive();
+});
+
+function renderProfilePageIfActive() {
+    const content = document.getElementById('app-content');
+    if (content && content.querySelector('.profile-page')) {
+        content.innerHTML = pages.profile();
+    }
+}
+
+window.installPWA = async function() {
+    if (!deferredPrompt) return;
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    // We've used the prompt, and can't use it again, throw it away
+    deferredPrompt = null;
+    renderProfilePageIfActive();
+};
+
 let shopConfig = {
     name: "1688 Electronic Mart",
     location: "Shenzhen, China",
@@ -1034,6 +1071,15 @@ const pages = {
                 </div>
 
                 <div class="service-list">
+                    ${deferredPrompt ? `
+                        <div class="service-item install-prompt-item" onclick="installPWA()" style="background: #fff4e6; border: 1px solid #ffe8cc;">
+                            <div class="service-item-left">
+                                <i class="fas fa-download" style="color: #ff6000;"></i>
+                                <span style="color: #ff6000; font-weight: 700;">Install Web Application</span>
+                            </div>
+                            <i class="fas fa-arrow-alt-circle-down" style="color: #ff6000;"></i>
+                        </div>
+                    ` : ''}
                     <div class="service-item" data-service="favorites">
                         <div class="service-item-left">
                             <i class="fas fa-heart" style="color: #ff4d4f;"></i>
