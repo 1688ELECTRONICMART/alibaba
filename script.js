@@ -2088,7 +2088,7 @@ auth.onAuthStateChanged((user) => {
                     const oldChat = oldChats.find(oc => oc.id === chat.id);
                     if (oldChat && chat.userUnreadCount > oldChat.userUnreadCount) {
                         playNotificationSound();
-                        showNotificationToast("New Message", `Admin: ${chat.lastMessage}`);
+                        showNotificationToast("New Message", `1688 Electronic: ${chat.lastMessage}`);
                     }
                 });
             }
