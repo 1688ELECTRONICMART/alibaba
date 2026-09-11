@@ -4,20 +4,20 @@
     "description": "Genuine Sourcing Platform",
     "start_url": "./index.html",
     "display": "standalone",
-    "background_color": "#f4f4f4",
+    "background_color": "#F26F20",
     "theme_color": "#F26F20",
     "icons": [
         {
-            "src": "icon.png",
+            "src": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a4/6a/06/a46a0662-72a3-2c1b-b184-7a1b8e1a1a6a/AppIcon-0-0-1x_U007emarketing-0-7-0-sRGB-85-220.png/512x512bb.jpg",
             "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "any maskable"
+            "type": "image/jpeg",
+            "purpose": "any"
         },
         {
-            "src": "icon.png",
+            "src": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a4/6a/06/a46a0662-72a3-2c1b-b184-7a1b8e1a1a6a/AppIcon-0-0-1x_U007emarketing-0-7-0-sRGB-85-220.png/512x512bb.jpg",
             "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "any maskable"
+            "type": "image/jpeg",
+            "purpose": "maskable any"
         }
     ]
 }

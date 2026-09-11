@@ -1000,7 +1000,8 @@ const pages = {
             return `
                 <div class="profile-page page-enter">
                     <div style="text-align: center; padding: 60px 20px;">
-                        <i class="fas fa-user-circle fa-5x" style="color: #ddd; margin-bottom: 20px;"></i>
+                        <img src="https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/a4/6a/06/a46a0662-72a3-2c1b-b184-7a1b8e1a1a6a/AppIcon-0-0-1x_U007emarketing-0-7-0-sRGB-85-220.png/512x512bb.jpg"
+                             style="width: 100px; height: 100px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
                         <h2>Welcome to 1688</h2>
                         <p style="color: var(--light-text); margin-bottom: 30px;">Sign in to manage your orders, favorites, and chat with suppliers.</p>
                         <button class="google-signin-btn" onclick="signInWithGoogle()">
