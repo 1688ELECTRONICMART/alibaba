@@ -152,6 +152,9 @@ function applyHotPatch(data) {
         });
     }
 
+    // 3. Trigger SW Check
+    navigator.serviceWorker.ready.then(reg => reg.update());
+
     // 3. Re-render Current View
     const currentPath = document.querySelector('.nav-item.active')?.dataset.page || 'home';
     setTimeout(() => {
@@ -1955,8 +1958,26 @@ document.getElementById('app-content').addEventListener('submit', (event) => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('Service Worker Registered!', reg))
+            .then(reg => {
+                console.log('Service Worker Registered!', reg);
+
+                // Check for updates every time the app comes to foreground
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        reg.update();
+                    }
+                });
+            })
             .catch(err => console.log('Service Worker Failed!', err));
+    });
+
+    // Handle controller change (new SW taking over)
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+        }
     });
 }
 
