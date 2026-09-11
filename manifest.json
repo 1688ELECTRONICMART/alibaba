@@ -10,12 +10,14 @@
         {
             "src": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/4a/0f/09/4a0f0985-19e3-8559-006d-557c66938a1f/AppIcon-0-0-1x_U007emarketing-0-7-0-sRGB-85-220.png/192x192bb.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         },
         {
             "src": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/4a/0f/09/4a0f0985-19e3-8559-006d-557c66938a1f/AppIcon-0-0-1x_U007emarketing-0-7-0-sRGB-85-220.png/512x512bb.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         }
     ]
 }
