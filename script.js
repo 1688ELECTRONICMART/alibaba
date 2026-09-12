@@ -169,6 +169,13 @@ function renderInvoice(invoiceId) {
     const safeInvoiceId = escapeHtml(invoiceId || 'INV-PENDING');
     const customerName = escapeHtml(userData?.name || currentUser?.displayName || '1688 Customer');
     const customerEmail = escapeHtml(userData?.email || currentUser?.email || '');
+    const customerPhone = escapeHtml(userData?.phone || currentUser?.phoneNumber || 'Not provided');
+    const customerAddress = userData?.address || {};
+    const addressLine = escapeHtml(customerAddress.line1 || customerAddress.address || 'Not provided');
+    const addressCity = escapeHtml(customerAddress.city || '');
+    const addressCountry = escapeHtml(customerAddress.country || '');
+    const addressPostalCode = escapeHtml(customerAddress.postalCode || '');
+    const addressSummary = [addressLine, addressCity, addressCountry, addressPostalCode].filter(Boolean).join(', ');
     return `<section class="invoice-modal-overlay" id="invoice-modal">
         <div class="invoice-modal-content">
             <button class="close-modal no-print" aria-label="Close invoice" onclick="navigate('message')">&times;</button>
@@ -178,7 +185,7 @@ function renderInvoice(invoiceId) {
                     <div class="invoice-meta"><h1>PROFORMA INVOICE</h1><strong>${safeInvoiceId}</strong><p>${new Date().toLocaleDateString()}</p></div>
                 </div>
                 <div class="invoice-details">
-                    <div class="invoice-col"><h3>Bill To</h3><p><strong>${customerName}</strong></p><p>${customerEmail}</p></div>
+                    <div class="invoice-col"><h3>Bill To</h3><p><strong>${customerName}</strong></p><p>${customerEmail}</p><p>Phone: ${customerPhone}</p><p>Delivery address: ${addressSummary || 'Not provided'}</p></div>
                     <div class="invoice-col"><h3>From</h3><p><strong>1688 Electronic Mart</strong></p><p>Shenzhen, China</p></div>
                 </div>
                 <table class="invoice-table"><thead><tr><th>Description</th><th>Quantity</th><th>Amount</th></tr></thead><tbody><tr><td>Electronic goods sourcing order</td><td>1</td><td>To be confirmed</td></tr></tbody></table>
