@@ -99,6 +99,11 @@ function navigate(pageId, itemId = null, category = null, sortBy = 'default', up
     const content = document.getElementById('app-content');
     if (!content) return;
 
+    // IMPORTANT: Clear the loading state
+    if (content.innerHTML.includes('Connecting to 1688 Mart')) {
+        content.innerHTML = '';
+    }
+
     if (updateUrl) {
         let hash = `#/${pageId}`;
         if (itemId) hash += `/${itemId}`;
