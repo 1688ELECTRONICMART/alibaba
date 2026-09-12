@@ -1486,6 +1486,32 @@ input {
     font-size: 16px;
 }
 
+.profile-card-group label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: #555;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.profile-card-group input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    padding: 11px 12px;
+    color: var(--text-color);
+    background: #fff;
+    font: inherit;
+    font-weight: 400;
+}
+
+.profile-card-group input:disabled {
+    color: #888;
+    background: #f7f7f7;
+}
+
 .chevron {
     color: #ddd;
     font-size: 12px;

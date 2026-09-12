@@ -248,7 +248,7 @@ const pages = {
         const name = userData?.name || currentUser.displayName || 'Member';
         const email = userData?.email || currentUser.email || 'Email unavailable';
         const phone = userData?.phone || currentUser.phoneNumber || 'Not provided';
-        const location = userData?.location || userData?.address || 'Not provided';
+        const address = userData?.address || addresses[0] || {};
         return `
         <div class="profile-page page-enter">
             <header class="profile-header-premium">
@@ -258,11 +258,16 @@ const pages = {
                 <div><h2 style="margin:0">${escapeHtml(name)}</h2><p style="margin:5px 0 0; opacity:0.7">${escapeHtml(email)}</p><small class="member-id">Member ID: ${escapeHtml(currentUser.uid)}</small></div>
             </header>
             <section class="profile-card-group">
-                <div class="card-header"><span class="card-title">Account details</span></div>
-                <div class="service-list">
-                    <div class="service-item"><span class="service-item-left"><i class="fas fa-envelope"></i><span>Email</span></span><span>${escapeHtml(email)}</span></div>
-                    <div class="service-item"><span class="service-item-left"><i class="fas fa-phone"></i><span>Phone</span></span><span>${escapeHtml(phone)}</span></div>
-                    <div class="service-item"><span class="service-item-left"><i class="fas fa-location-dot"></i><span>Location</span></span><span>${escapeHtml(location)}</span></div>
+                <div class="card-header"><span class="card-title">Profile and delivery details</span></div>
+                <div class="service-list" style="gap:10px">
+                    <label>Full name<input id="profile-name" value="${escapeHtml(name)}" autocomplete="name"></label>
+                    <label>Email<input value="${escapeHtml(email)}" disabled autocomplete="email"></label>
+                    <label>Phone number<input id="profile-phone" value="${escapeHtml(phone === 'Not provided' ? '' : phone)}" autocomplete="tel"></label>
+                    <label>Address line<input id="profile-address" value="${escapeHtml(address.line1 || address.address || '')}" autocomplete="street-address"></label>
+                    <label>City<input id="profile-city" value="${escapeHtml(address.city || '')}" autocomplete="address-level2"></label>
+                    <label>Country<input id="profile-country" value="${escapeHtml(address.country || '')}" autocomplete="country-name"></label>
+                    <label>Postal code<input id="profile-postal-code" value="${escapeHtml(address.postalCode || '')}" autocomplete="postal-code"></label>
+                    <button class="primary-btn" onclick="saveProfileDetails()"><i class="fas fa-save"></i> Save details</button>
                 </div>
             </section>
             <section class="profile-card-group">
@@ -332,7 +337,37 @@ function renderProductDetail(id) {
 }
 
 // --- 6. CORE ACTIONS ---
-function signInWithGoogle() { auth.signInWithPopup(provider).catch(e => alert(e.message)); }
+function signInWithGoogle() {
+    if (!auth || !provider) return alert('Google sign-in is not ready. Please reload the page.');
+    auth.signInWithPopup(provider).catch(e => alert(e.message));
+}
+function saveProfileDetails() {
+    if (!currentUser) return navigate('profile');
+    const details = {
+        id: currentUser.uid,
+        name: document.getElementById('profile-name')?.value.trim() || currentUser.displayName || 'Member',
+        email: currentUser.email || '',
+        phone: document.getElementById('profile-phone')?.value.trim() || '',
+        address: {
+            line1: document.getElementById('profile-address')?.value.trim() || '',
+            city: document.getElementById('profile-city')?.value.trim() || '',
+            country: document.getElementById('profile-country')?.value.trim() || '',
+            postalCode: document.getElementById('profile-postal-code')?.value.trim() || ''
+        },
+        updatedAt: new Date().toISOString()
+    };
+    userData = { ...userData, ...details };
+    addresses = [details.address];
+    storage.set('addresses', addresses);
+    if (db) {
+        db.collection('users').doc(currentUser.uid).set(details, { merge: true })
+            .then(() => showNotificationToast('Profile saved', 'Your delivery details were updated.'))
+            .catch(handleFirebaseError);
+    } else {
+        showNotificationToast('Profile saved locally', 'Reconnect to sync with your account.');
+    }
+    navigate('profile', null, null, 'default', false);
+}
 function logout() { if(confirm('Log out?')) auth.signOut().then(() => { localStorage.clear(); location.reload(); }); }
 function addToCart(id, type) {
     const item = (type==='ad'?featuredAds:mockProducts).find(x => String(x.id) === String(id));
