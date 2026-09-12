@@ -57,7 +57,7 @@ function renderThumbImage(srcOrIcon, className = '') {
     if (!srcOrIcon) return `<i class="fas fa-image ${className}"></i>`;
     const s = String(srcOrIcon).trim();
     if (s.startsWith('http') || s.startsWith('data:') || s.includes('/')) {
-        return `<img src="${cloudinaryOptimize(s, 300)}" class="${className}" alt="Item" loading="lazy">`;
+        return `<img src="${cloudinaryOptimize(s, 300)}" class="${className}" alt="Item" loading="lazy" onerror="this.style.display='none'">`;
     }
     return `<i class="fas ${s.startsWith('fa-') ? s : 'fa-' + s} ${className}"></i>`;
 }
@@ -73,26 +73,13 @@ function showNotificationToast(title, body) {
 }
 
 function saveData() {
-    storage.set('cart', cart);
-    storage.set('favorites', favorites);
-    storage.set('footprints', footprints);
-    storage.set('recentSearches', recentSearches);
-    storage.set('addresses', addresses);
     storage.set('cache_products', mockProducts);
     storage.set('cache_adverts', featuredAds);
     storage.set('cache_categories', mockCategories);
+    storage.set('cache_chats', userChats);
+    storage.set('cart', cart);
+    storage.set('favorites', favorites);
     storage.set('selectedCartItems', Array.from(selectedCartItems));
-}
-
-function toggleFavorite(itemId, type) {
-    const strId = String(itemId);
-    const idx = favorites.findIndex(f => String(f.id) === strId);
-    if (idx > -1) favorites.splice(idx, 1);
-    else {
-        const item = (type === 'ad' ? featuredAds : mockProducts).find(i => String(i.id) === strId);
-        if (item) favorites.push({ ...item, type });
-    }
-    saveData();
 }
 
 function trackFootprint(itemId, type) {
@@ -102,18 +89,24 @@ function trackFootprint(itemId, type) {
         footprints = footprints.filter(f => String(f.id) !== strId);
         footprints.unshift({ ...item, type });
         if (footprints.length > 30) footprints.pop();
-        saveData();
+        storage.set('footprints', footprints);
     }
 }
 
 // --- 4. NAVIGATION ---
 function navigate(pageId, itemId = null, category = null, sortBy = 'default', updateUrl = true) {
+    console.log("Navigating to:", pageId, itemId);
     const content = document.getElementById('app-content');
     if (!content) return;
 
     if (updateUrl) {
         let hash = `#/${pageId}`;
         if (itemId) hash += `/${itemId}`;
+        const params = new URLSearchParams();
+        if (category) params.set('cat', category);
+        if (sortBy !== 'default') params.set('sort', sortBy);
+        const paramStr = params.toString();
+        if (paramStr) hash += `?${paramStr}`;
         window.history.pushState(null, null, hash);
     }
 
@@ -124,8 +117,10 @@ function navigate(pageId, itemId = null, category = null, sortBy = 'default', up
 
     let html = '';
     if (pageId === 'advert-detail' && itemId) {
+        trackFootprint(itemId, 'ad');
         html = renderAdvertDetail(itemId);
     } else if (pageId === 'product-detail' && itemId) {
+        trackFootprint(itemId, 'prod');
         html = renderProductDetail(itemId);
     } else if (pages[pageId]) {
         html = pages[pageId](itemId, category, sortBy);
@@ -143,19 +138,19 @@ function navigate(pageId, itemId = null, category = null, sortBy = 'default', up
 
 function handleRouting() {
     const hash = window.location.hash || '#/home';
-    const path = hash.replace('#/', '').split('?')[0];
-    const segments = path.split('/');
-    navigate(segments[0] || 'home', segments[1], null, 'default', false);
+    const [pathPart, queryPart] = hash.replace('#/', '').split('?');
+    const segments = pathPart.split('/');
+    const params = new URLSearchParams(queryPart || '');
+    navigate(segments[0] || 'home', segments[1], params.get('cat'), params.get('sort') || 'default', false);
 }
 
 // --- 5. RENDERERS ---
 const pages = {
-    home: (q = '', cat = null, sort = 'default') => {
-        const query = (q || '').toLowerCase().trim();
+    home: (searchQuery = '', filterCategory = null, sortBy = 'default') => {
+        const query = (searchQuery || '').toLowerCase().trim();
         const filtered = (mockProducts || []).filter(p => {
-            const matchText = (p.name || p.title || '').toLowerCase().includes(query);
-            const matchCat = cat ? p.category === cat : true;
-            return matchText && matchCat;
+            const name = String(p.name || p.title || '').toLowerCase();
+            return name.includes(query) && (filterCategory ? p.category === filterCategory : true);
         });
 
         return `
@@ -168,10 +163,10 @@ const pages = {
                 `).join('')}
             </div>
             <div class="category-grid">${mockCategories.map(c => `<div class="category-item" onclick="navigate('home', '', '${c.name}')"><div class="category-icon"><i class="fas ${c.icon}"></i></div><span>${c.name}</span></div>`).join('')}</div>
-            <div class="section-title" style="padding:15px">${cat || 'Recommended Items'}</div>
+            <div class="section-title" style="padding:15px">${filterCategory || 'Recommended Items'}</div>
             <div class="product-grid">
-                ${filtered.map(p => `
-                    <button class="product-card" onclick="navigate('product-detail', '${p.id}')">
+                ${filtered.length === 0 ? '<p style="padding:20px; color:#999">No products found.</p>' : filtered.map(p => `
+                    <button class="product-card stagger-item" onclick="navigate('product-detail', '${p.id}')">
                         <div class="product-img">${renderThumbImage(p.images?.[0]||p.imageUrl||p.image)}</div>
                         <div class="product-info">
                             <div class="product-name">${p.name||'Product'}</div>
@@ -183,7 +178,7 @@ const pages = {
         </section>`;
     },
     cart: () => {
-        if (cart.length === 0) return `<div class="empty-state page-enter" style="text-align:center; padding:100px 20px"><i class="fas fa-shopping-cart fa-3x" style="color:#ddd"></i><p style="margin-top:15px">Your cart is empty</p><button class="primary-btn" onclick="navigate('home')" style="margin-top:20px">Go Sourcing</button></div>`;
+        if (cart.length === 0) return `<div class="empty-state page-enter" style="text-align:center; padding:100px 20px"><i class="fas fa-shopping-cart fa-3x" style="color:#ddd"></i><p style="margin-top:15px">Your cart is empty</p><button class="primary-btn" onclick="navigate('home')" style="margin-top:20px; background:var(--primary-color); color:white; border:none; padding:10px 20px; border-radius:8px">Go Sourcing</button></div>`;
         return `
             <div class="cart-page page-enter" style="padding:20px">
                 <div class="section-title">My Cart (${cart.length})</div>
@@ -195,7 +190,7 @@ const pages = {
                                 <div style="font-weight:bold">${item.name || item.title}</div>
                                 <div style="color:var(--primary-color)">¥${Number(item.price || 0).toFixed(2)}</div>
                             </div>
-                            <button class="remove-btn" onclick="removeFromCart('${item.id}')" style="border:none; background:none; color:#ff4d4f"><i class="fas fa-trash"></i></button>
+                            <button onclick="removeFromCart('${item.id}')" style="border:none; background:none; color:#ff4d4f"><i class="fas fa-trash"></i></button>
                         </div>
                     `).join('')}
                 </div>
@@ -203,56 +198,21 @@ const pages = {
             </div>`;
     },
     profile: () => {
-        if (!currentUser) return `<div class="profile-page page-enter" style="text-align:center; padding:100px 20px">
-            <img src="https://gw.alicdn.com/tps/i2/TB1nmqyFFXXXXcQbFXXE5jB3XXX-114-114.png" style="width:80px; margin-bottom:20px">
-            <h2>Welcome to 1688</h2>
-            <button class="primary-btn" onclick="signInWithGoogle()" style="margin-top:20px; background:var(--primary-color); color:white; border:none; padding:12px 25px; border-radius:8px; font-weight:bold">Sign in with Google</button>
-        </div>`;
-
+        if (!currentUser) return `<div class="profile-page page-enter" style="text-align:center; padding:100px 20px"><img src="https://gw.alicdn.com/tps/i2/TB1nmqyFFXXXXcQbFXXE5jB3XXX-114-114.png" style="width:80px; margin-bottom:20px"><h2>Welcome to 1688</h2><button class="primary-btn" onclick="signInWithGoogle()" style="margin-top:20px; background:var(--primary-color); color:white; border:none; padding:12px 25px; border-radius:8px; font-weight:bold">Sign in with Google</button></div>`;
         return `
         <div class="profile-page page-enter">
-            <header class="profile-header-premium" style="background:#333; color:#fff; padding:40px 20px; display:flex; align-items:center; gap:20px">
-                <div class="profile-avatar-premium" style="width:64px; height:64px; border-radius:50%; overflow:hidden; background:#eee">
+            <header style="background:#333; color:#fff; padding:40px 20px; display:flex; align-items:center; gap:20px">
+                <div style="width:64px; height:64px; border-radius:50%; overflow:hidden; background:#eee">
                     ${currentUser.photoURL ? `<img src="${currentUser.photoURL}" style="width:100%; height:100%">` : '<i class="fas fa-user fa-2x"></i>'}
                 </div>
-                <div>
-                    <h2 style="margin:0">${currentUser.displayName || 'Member'}</h2>
-                    <p style="margin:5px 0 0; opacity:0.7">${currentUser.email}</p>
-                </div>
+                <div><h2 style="margin:0">${currentUser.displayName || 'Member'}</h2><p style="margin:5px 0 0; opacity:0.7">${currentUser.email}</p></div>
             </header>
-
-            <section class="profile-card-group" style="padding:16px">
-                <div class="section-title" style="margin-bottom:10px">Business Profile</div>
-                <div id="business-info-section" style="padding:16px; background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05)">
-                    ${renderBusinessInfoContent()}
-                </div>
-
-                <div class="service-list" style="margin-top:20px; display:flex; flex-direction:column; gap:8px">
-                    ${deferredPrompt ? `<div class="service-item" onclick="installPWA()" style="background:#fff4e6; color:#ff6000; font-weight:bold"><i class="fas fa-download"></i><span>Install Web Application</span><i class="fas fa-chevron-right"></i></div>` : ''}
-                    <div class="service-item" onclick="navigate('favorites')"><i class="fas fa-heart" style="color:#ff4d4f"></i><span>My Favorites</span><i class="fas fa-chevron-right"></i></div>
-                    <div class="service-item" onclick="navigate('footprints')"><i class="fas fa-history" style="color:#1890ff"></i><span>Browsing History</span><i class="fas fa-chevron-right"></i></div>
-                    <div class="service-item" onclick="navigate('address')"><i class="fas fa-map-marker-alt" style="color:#52c41a"></i><span>Shipping Address</span><i class="fas fa-chevron-right"></i></div>
-                    <div class="service-item" onclick="navigate('security')"><i class="fas fa-user-shield"></i><span>Security Center</span><i class="fas fa-chevron-right"></i></div>
-                </div>
-
-                <div class="logout-container" style="margin-top:30px">
-                    <button class="logout-btn" onclick="logout()" style="width:100%; padding:15px; background:#fff; border:1px solid #eee; border-radius:12px; color:#ff4d4f; font-weight:bold">Log Out</button>
-                </div>
-            </section>
+            <div class="service-list" style="padding:20px; display:flex; flex-direction:column; gap:12px">
+                <button class="secondary-btn" onclick="logout()" style="padding:15px; background:#fff; color:#ff4d4f; border:1px solid #eee; border-radius:10px; font-weight:bold"><i class="fas fa-sign-out-alt"></i> Log Out</button>
+            </div>
         </div>`;
     },
-    message: () => `
-        <div class="message-page page-enter" style="padding:20px">
-            <div class="section-title">Messages</div>
-            <div class="chat-list" style="margin-top:20px">
-                ${userChats.length === 0 ? '<p style="text-align:center; margin-top:50px; color:#999">No messages yet.</p>' : userChats.map(msg => `
-                    <div class="chat-item" onclick="navigate('chat', '${msg.id}')" style="padding:15px; background:#fff; border-radius:12px; margin-bottom:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05)">
-                        <strong>${msg.userName}</strong>
-                        <p style="font-size:12px; color:#666; margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${msg.lastMessage}</p>
-                    </div>
-                `).join('')}
-            </div>
-        </div>`,
+    message: () => `<div class="message-page page-enter" style="padding:20px"><div class="section-title">Messages</div><div class="chat-list" style="margin-top:20px">${userChats.length === 0 ? '<p style="text-align:center; margin-top:50px; color:#999">No messages yet.</p>' : userChats.map(msg => `<div class="chat-item" onclick="navigate('chat', '${msg.id}')" style="padding:15px; background:#fff; border-radius:12px; margin-bottom:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05)"><strong>${msg.userName}</strong><p style="font-size:12px; color:#666; margin-top:5px">${msg.lastMessage}</p></div>`).join('')}</div></div>`,
     chat: (id) => {
         const chat = userChats.find(m => m.id === id);
         if (!chat) return pages.message();
@@ -266,7 +226,7 @@ const pages = {
                     ${chat.messages.map(m => `<div class="msg-bubble ${m.senderRole==='user'?'me':'them'}" style="margin-bottom:10px; padding:10px 15px; border-radius:15px; max-width:80%; align-self:${m.senderRole==='user'?'flex-end':'flex-start'}; background:${m.senderRole==='user'?'var(--primary-color)':'#f4f4f4'}; color:${m.senderRole==='user'?'#fff':'#333'}">${m.text}</div>`).join('')}
                 </div>
                 <div class="chat-footer" style="padding:10px; background:#fff; border-top:1px solid #eee; display:flex; gap:10px">
-                    <input type="text" id="chat-input" placeholder="Type a message..." style="flex:1; border:1px solid #ddd; padding:10px; border-radius:20px; outline:none">
+                    <input type="text" id="chat-input" placeholder="Type a message..." style="flex:1; border:1px solid #ddd; padding:10px; border-radius:20px">
                     <button onclick="sendRealMessage('${chat.id}')" style="background:var(--primary-color); color:#fff; border:none; width:40px; height:40px; border-radius:50%"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>`;
@@ -276,16 +236,15 @@ const pages = {
 function renderAdvertDetail(adId) {
     const ad = featuredAds.find(x => String(x.id) === String(adId));
     if (!ad) return pages.home();
-    return `
-    <section class="advert-detail page-enter" style="padding:20px">
+    return `<section class="advert-detail page-enter" style="padding:20px">
         <button class="back-button" onclick="navigate('home')" style="border:none; background:rgba(0,0,0,0.05); width:40px; height:40px; border-radius:50%; margin-bottom:15px"><i class="fas fa-arrow-left"></i></button>
         <div style="text-align:center">${renderThumbImage(ad.imageUrl || ad.icon, "style='width:100%; max-height:350px; border-radius:16px; object-fit:cover'")}</div>
         <div class="detail-card" style="background:#fff; padding:24px; border-radius:20px; margin-top:15px; box-shadow:0 4px 20px rgba(0,0,0,0.08)">
             <h1 style="font-size:24px; color:#222">${ad.title}</h1>
             <p style="color:#666; margin-top:15px; line-height:1.6">${ad.short || 'Authentic manufacturer promotion.'}</p>
             <div class="detail-actions" style="margin-top:30px; display:flex; gap:12px">
-                <button class="primary-btn" style="flex:1.5; background:var(--primary-color); color:#fff; border:none; padding:18px; border-radius:14px; font-weight:bold" onclick="startChatWithSupplier('${ad.title.replace(/'/g, "\\'")}', 'ad', '${ad.imageUrl||''}')">Start Inquiry</button>
-                <button class="secondary-btn" style="flex:1; border:1px solid #ddd; background:#fff; padding:18px; border-radius:14px; font-weight:bold" onclick="addToCart('${ad.id}', 'ad')">Add to RFQ</button>
+                <button class="primary-btn" style="flex:1.5; background:var(--primary-color); color:#fff; border:none; padding:15px; border-radius:12px; font-weight:bold" onclick="startChatWithSupplier('${ad.title.replace(/'/g, "\\'")}', 'ad', '${ad.imageUrl||''}')">Start Inquiry</button>
+                <button class="secondary-btn" style="flex:1; border:1px solid #ddd; padding:15px; border-radius:12px; font-weight:bold" onclick="addToCart('${ad.id}', 'ad')">Add to RFQ</button>
             </div>
         </div>
     </section>`;
@@ -294,54 +253,29 @@ function renderAdvertDetail(adId) {
 function renderProductDetail(id) {
     const p = mockProducts.find(x => String(x.id) === String(id));
     if (!p) return pages.home();
-    return `
-    <section class="product-detail page-enter" style="padding:20px">
+    return `<section class="product-detail page-enter" style="padding:20px">
         <button class="back-button" onclick="navigate('home')" style="border:none; background:rgba(0,0,0,0.05); width:40px; height:40px; border-radius:50%; margin-bottom:15px"><i class="fas fa-arrow-left"></i></button>
         <div style="text-align:center">${renderThumbImage(p.images?.[0] || p.imageUrl, "style='width:100%; max-height:350px; border-radius:16px; object-fit:contain'")}</div>
         <div class="detail-card" style="background:#fff; padding:24px; border-radius:20px; margin-top:15px; box-shadow:0 4px 20px rgba(0,0,0,0.08)">
             <div style="color:var(--primary-color); font-size:28px; font-weight:800">¥${Number(p.price||0).toFixed(2)}</div>
             <h1 style="font-size:20px; color:#222; margin-top:10px">${p.name}</h1>
-            <p style="color:#555; margin-top:20px; line-height:1.6">${p.description || 'Verified authentic electronics item.'}</p>
+            <p style="color:#555; margin-top:20px; line-height:1.6">${p.description || 'Verified authentic item.'}</p>
             <div class="detail-actions" style="margin-top:30px; display:flex; gap:12px">
-                <button class="primary-btn" style="flex:1.5; background:var(--primary-color); color:#fff; border:none; padding:18px; border-radius:14px; font-weight:bold" onclick="startChatWithSupplier('${p.name.replace(/'/g, "\\'")}', 'prod', '${p.images?.[0]||''}')">Buy Now</button>
-                <button class="secondary-btn" style="flex:1; border:1px solid #ddd; background:#fff; padding:18px; border-radius:14px; font-weight:bold" onclick="addToCart('${p.id}', 'prod')">Add to Cart</button>
+                <button class="primary-btn" style="flex:1.5; background:var(--primary-color); color:#fff; border:none; padding:15px; border-radius:12px; font-weight:bold" onclick="startChatWithSupplier('${p.name.replace(/'/g, "\\'")}', 'prod', '${p.images?.[0]||''}')">Buy Now</button>
+                <button class="secondary-btn" style="flex:1; border:1px solid #ddd; padding:15px; border-radius:12px; font-weight:bold" onclick="addToCart('${p.id}', 'prod')">Add to Cart</button>
             </div>
         </div>
     </section>`;
 }
 
-// --- 6. ACTIONS ---
-function renderBusinessInfoContent() {
-    if (!userData) return '<p>Loading...</p>';
-    return `
-        <div style="display:flex; flex-direction:column; gap:15px">
-            <div><label style="font-size:12px; color:#999">Company Name</label><input type="text" id="biz-company" value="${userData.companyName || ''}" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px"></div>
-            <div><label style="font-size:12px; color:#999">Business Type</label><select id="biz-type" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px"><option value="Agent" ${userData.businessType==='Agent'?'selected':''}>Agent</option><option value="Manufacturer" ${userData.businessType==='Manufacturer'?'selected':''}>Manufacturer</option></select></div>
-            <button class="primary-btn" onclick="saveBusinessInfo()" style="padding:12px; background:var(--primary-color); color:#fff; border:none; border-radius:8px; font-weight:bold">Save Profile</button>
-        </div>`;
-}
-
-function saveBusinessInfo() {
-    if (!currentUser) return;
-    db.collection("users").doc(currentUser.uid).update({
-        companyName: document.getElementById('biz-company').value,
-        businessType: document.getElementById('biz-type').value
-    }).then(() => showNotificationToast("Success", "Profile updated!"));
-}
-
-function addToCart(id, type) {
-    const list = type === 'ad' ? featuredAds : mockProducts;
-    const item = list.find(x => String(x.id) === String(id));
-    if (item && !cart.find(x => String(x.id) === String(id))) {
-        cart.push({...item, type}); saveData(); showNotificationToast("Success", "Added to cart!");
-    } else { showNotificationToast("Info", "Already in cart."); }
-}
-
-function removeFromCart(id) { cart = cart.filter(x => String(x.id) !== String(id)); saveData(); navigate('cart'); }
+// --- 6. CORE ACTIONS ---
 function signInWithGoogle() { auth.signInWithPopup(provider).catch(e => alert(e.message)); }
-function logout() { if(confirm('Logout?')) auth.signOut().then(() => { localStorage.clear(); location.reload(); }); }
-window.installPWA = async function() { if(!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; navigate('profile'); };
-
+function logout() { if(confirm('Log out?')) auth.signOut().then(() => { localStorage.clear(); location.reload(); }); }
+function addToCart(id, type) {
+    const item = (type==='ad'?featuredAds:mockProducts).find(x => String(x.id) === String(id));
+    if (item && !cart.find(x => String(x.id) === String(id))) { cart.push({...item, type}); saveData(); showNotificationToast("Success", "Added to cart!"); }
+}
+function removeFromCart(id) { cart = cart.filter(x => String(x.id) !== String(id)); saveData(); navigate('cart'); }
 function startChatWithSupplier(name, type, img) {
     if (!currentUser) return navigate('profile');
     const chatId = `chat_${currentUser.uid}`;
@@ -349,32 +283,23 @@ function startChatWithSupplier(name, type, img) {
     ref.once('value').then(s => {
         const data = s.val() || { id: chatId, userName: currentUser.displayName, messages: [], adminUnreadCount: 0 };
         data.messages.push({ sender: currentUser.displayName, text: `Inquiry: ${name}`, time: new Date().toLocaleTimeString(), senderRole: 'user', fromMe: true, attachmentUrl: img });
-        data.lastMessage = `Inquiry: ${name}`; data.lastTime = 'Just now'; data.adminUnreadCount++;
+        data.lastMessage = `Inquiry: ${name}`; data.adminUnreadCount++;
         ref.set(data).then(() => navigate('chat', chatId));
     });
 }
-
 function sendRealMessage(chatId) {
     const input = document.getElementById('chat-input'); if (!input || !input.value.trim()) return;
     const ref = rtdb.ref(`chats/${chatId}`);
     ref.once('value').then(s => {
-        const data = s.val();
+        const data = s.val(); if (!data) return;
         data.messages.push({ sender: currentUser.displayName, text: input.value.trim(), time: new Date().toLocaleTimeString(), senderRole: 'user', fromMe: true });
         data.lastMessage = input.value.trim(); data.adminUnreadCount++;
         ref.update(data).then(() => { input.value = ''; navigate('chat', chatId, null, 'default', false); });
     });
 }
 
-function checkUpdate(data) {
-    if (!data || !data.last_updated_at) return;
-    const last = storage.get('last_applied_version', 0);
-    if (data.last_updated_at > last) { storage.set('last_applied_version', data.last_updated_at); location.reload(true); }
-}
-
-// --- 7. INIT ---
+// --- 7. INITIALIZATION ---
 window.addEventListener('popstate', handleRouting);
-window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; if (document.querySelector('.profile-page')) navigate('profile', null, null, 'default', false); });
-
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => navigate(item.dataset.page)));
     if (typeof firebase !== 'undefined') {
@@ -382,17 +307,14 @@ document.addEventListener('DOMContentLoaded', () => {
             currentUser = user;
             if (user) {
                 db.collection("users").doc(user.uid).set({ id: user.uid, name: user.displayName, email: user.email }, { merge: true });
-                db.collection("users").doc(user.uid).onSnapshot(doc => { if (doc.exists) { userData = doc.data(); if (document.getElementById('business-info-section')) document.getElementById('business-info-section').innerHTML = renderBusinessInfoContent(); } });
                 rtdb.ref("chats").on("value", s => {
-                    const data = s.val(); if (!data) return;
-                    userChats.length = 0; userChats.push(...Object.values(data).filter(c => c.id.includes(user.uid))); saveData();
-                    if (document.querySelector('.message-page')) navigate('message', null, null, 'default', false);
+                    const d = s.val(); if (d) { userChats = Object.values(d).filter(c => c.id.includes(user.uid)); saveData(); if (document.querySelector('.message-page')) navigate('message', null, null, 'default', false); }
                 });
             }
             handleRouting();
         });
         db.collection("products").onSnapshot(s => { mockProducts = s.docs.map(d => ({ id: d.id, ...d.data() })); saveData(); handleRouting(); });
-        rtdb.ref("system/deployment").on("value", s => checkUpdate(s.val()));
+        db.collection("adverts").onSnapshot(s => { featuredAds = s.docs.map(d => ({ id: d.id, ...d.data() })); saveData(); handleRouting(); });
     }
     handleRouting();
 });
