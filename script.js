@@ -17,6 +17,7 @@ const firebaseConfig = {
 let db, rtdb, auth, provider;
 let currentUser = null;
 let userData = null;
+let activeInvoiceData = null;
 let deferredPrompt = null;
 let shopConfig = {
     name: "1688 Electronic Mart",
@@ -185,6 +186,14 @@ function navigate(pageId, itemId = null, category = null, sortBy = 'default', up
     }
 
     content.innerHTML = html;
+    if (pageId === 'invoice' && itemId && db && activeInvoiceData?.id !== itemId) {
+        db.collection('invoices').doc(itemId).get().then(snapshot => {
+            if (snapshot.exists) {
+                activeInvoiceData = { id: snapshot.id, ...snapshot.data() };
+                navigate('invoice', itemId, null, 'default', false);
+            }
+        }).catch(handleFirebaseError);
+    }
     document.querySelectorAll('.nav-item').forEach(i => {
         i.classList.remove('active');
         if (i.dataset.page === pageId) i.classList.add('active');
@@ -208,6 +217,38 @@ function openInvoice(invoiceId) {
     navigate('invoice', invoiceId);
 }
 
+function addBusinessDays(startDate, days) {
+    const date = new Date(startDate);
+    let remaining = days;
+    while (remaining > 0) {
+        date.setDate(date.getDate() + 1);
+        const day = date.getDay();
+        if (day !== 0 && day !== 6) remaining -= 1;
+    }
+    return date;
+}
+
+function formatInvoiceDate(date) {
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function getShippingEstimate(country) {
+    const destination = String(country || '').toLowerCase();
+    const region = destination.includes('china') ? [3, 7, 'China']
+        : /japan|korea|india|indonesia|malaysia|singapore|thailand|vietnam|philippines|pakistan|bangladesh|asia/.test(destination) ? [7, 14, 'Asia']
+        : /nigeria|ghana|kenya|south africa|egypt|morocco|tanzania|uganda|africa/.test(destination) ? [10, 21, 'Africa']
+        : /united kingdom|france|germany|italy|spain|portugal|netherlands|europe|sweden|norway|denmark|ireland|poland/.test(destination) ? [7, 14, 'Europe']
+        : /united states|canada|mexico|america|north america/.test(destination) ? [10, 18, 'North America']
+        : /brazil|argentina|colombia|peru|chile|south america/.test(destination) ? [14, 28, 'South America']
+        : /australia|new zealand|fiji|oceania/.test(destination) ? [10, 21, 'Oceania']
+        : [14, 28, 'International'];
+    const orderDate = new Date();
+    const shipDate = addBusinessDays(orderDate, 2);
+    const deliveryStart = addBusinessDays(shipDate, region[0]);
+    const deliveryEnd = addBusinessDays(shipDate, region[1]);
+    return { region: region[2], shipDate: formatInvoiceDate(shipDate), deliveryStart: formatInvoiceDate(deliveryStart), deliveryEnd: formatInvoiceDate(deliveryEnd) };
+}
+
 function renderChatMessage(message) {
     const invoiceId = escapeHtml(message.invoiceId);
     const attachmentUrl = String(message.attachmentUrl || '').trim();
@@ -222,12 +263,13 @@ function renderChatMessage(message) {
 }
 
 function renderInvoice(invoiceId) {
+    const invoice = activeInvoiceData?.id === invoiceId ? activeInvoiceData : {};
     const safeInvoiceId = escapeHtml(invoiceId || 'INV-PENDING');
-    const customerName = escapeHtml(userData?.name || currentUser?.displayName || '1688 Customer');
-    const customerEmail = escapeHtml(userData?.email || currentUser?.email || '');
-    const customerPhone = escapeHtml(`${userData?.phoneCountryCode || ''} ${userData?.phone || currentUser?.phoneNumber || 'Not provided'}`.trim());
+    const customerName = escapeHtml(invoice.customerName || userData?.name || currentUser?.displayName || '1688 Customer');
+    const customerEmail = escapeHtml(invoice.customerEmail || userData?.email || currentUser?.email || '');
+    const customerPhone = escapeHtml(invoice.customerPhone || `${userData?.phoneCountryCode || ''} ${userData?.phone || currentUser?.phoneNumber || 'Not provided'}`.trim());
     const customerAddress = userData?.address || {};
-    const addressLine = escapeHtml(customerAddress.line1 || customerAddress.address || 'Not provided');
+    const addressLine = escapeHtml(invoice.customerAddress || customerAddress.line1 || customerAddress.address || 'Not provided');
     const addressCity = escapeHtml(customerAddress.city || '');
     const addressCountry = escapeHtml(customerAddress.country || '');
     const addressPostalCode = escapeHtml(customerAddress.postalCode || '');
@@ -237,7 +279,18 @@ function renderInvoice(invoiceId) {
     const companyEmail = escapeHtml(shopConfig.email);
     const companyPhone = escapeHtml(shopConfig.phone);
     const companyWebsite = escapeHtml(shopConfig.website);
-    return `<section class="invoice-modal-overlay" id="invoice-modal">
+    const shippingEstimate = getShippingEstimate(invoice.customerCountry || customerAddress.country);
+    const shippingCountry = escapeHtml(invoice.customerCountry || customerAddress.country || 'International');
+    const description = escapeHtml(invoice.description || 'Electronic goods sourcing order');
+    const quantity = Number(invoice.quantity || 1);
+    const unitPrice = Number(invoice.unitPrice || 0);
+    const shippingCost = Number(invoice.shippingCost || 0);
+    const tax = Number(invoice.tax || 0);
+    const currency = escapeHtml(invoice.currency || 'CNY');
+    const amount = unitPrice * quantity;
+    const total = amount + shippingCost + tax;
+    const money = value => value > 0 ? `${currency} ${value.toFixed(2)}` : 'To be confirmed';
+    return `<section class="invoice-modal-overlay invoice-desktop-view" id="invoice-modal">
         <div class="invoice-modal-content">
             <button class="close-modal no-print" aria-label="Close invoice" onclick="navigate('message')">&times;</button>
             <div class="invoice-paper">
@@ -245,17 +298,26 @@ function renderInvoice(invoiceId) {
                     <div class="invoice-logo"><div class="invoice-brand-mark"><span>1688</span><strong>Electronic Mart</strong></div><p>Electronic sourcing platform</p><p>${companyWebsite}</p></div>
                     <div class="invoice-meta"><h1>PROFORMA INVOICE</h1><strong>${safeInvoiceId}</strong><p>${new Date().toLocaleDateString()}</p></div>
                 </div>
-                <div class="invoice-details">
+                <div class="invoice-details invoice-mobile-section">
                     <div class="invoice-col"><h3>Bill To</h3><p><strong>${customerName}</strong></p><p>${customerEmail}</p><p>Phone: ${customerPhone}</p><p>Delivery address: ${addressSummary || 'Not provided'}</p></div>
                     <div class="invoice-col"><h3>From</h3><p><strong>${companyName}</strong></p><p>${companyLocation}</p><p>${companyEmail}</p><p>Phone: ${companyPhone}</p></div>
                 </div>
-                <table class="invoice-table"><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody><tr><td>Electronic goods sourcing order</td><td>1</td><td>To be confirmed</td><td>To be confirmed</td></tr></tbody></table>
-                <div class="invoice-summary"><div class="total-row"><span>Subtotal</span><span>To be confirmed</span></div><div class="total-row"><span>Shipping</span><span>To be confirmed</span></div><div class="total-row"><span>Tax</span><span>To be confirmed</span></div></div>
-                <div class="invoice-total"><div class="total-row grand-total"><span>Total</span><span>To be confirmed</span></div></div>
-                <div class="invoice-bank-section"><strong>Payment and shipping terms</strong><p>Payment method, shipping method, delivery estimate, and final pricing will be confirmed by the supplier before payment.</p></div>
+                <div class="invoice-table-desktop"><table class="invoice-table"><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody><tr><td>${description}</td><td>${quantity}</td><td>${money(unitPrice)}</td><td>${money(amount)}</td></tr></tbody></table></div>
+                <section class="invoice-item-mobile" aria-label="Invoice item">
+                    <h3>${description}</h3>
+                    <div><span>Description</span><strong>${description}</strong></div>
+                    <div><span>Quantity</span><strong>${quantity}</strong></div>
+                    <div><span>Unit price</span><strong>${money(unitPrice)}</strong></div>
+                    <div><span>Amount</span><strong>${money(amount)}</strong></div>
+                </section>
+                <div class="invoice-summary"><div class="total-row"><span>Subtotal</span><span>${money(amount)}</span></div><div class="total-row"><span>Shipping</span><span>${money(shippingCost)}</span></div><div class="total-row"><span>Tax</span><span>${money(tax)}</span></div></div>
+                <div class="invoice-total"><div class="total-row grand-total"><span>Total</span><span>${money(total)}</span></div></div>
+                <div class="invoice-bank-section invoice-mobile-section"><strong>Shipping estimate</strong><div class="bank-grid"><label>Destination</label><span>${shippingCountry}${addressCity ? `, ${addressCity}` : ''}</span><label>Region</label><span>${shippingEstimate.region}</span><label>Estimated ship date</label><span>${shippingEstimate.shipDate}</span><label>Estimated delivery</label><span>${shippingEstimate.deliveryStart} - ${shippingEstimate.deliveryEnd}</span></div><p>Estimated using standard shipping and business days. Courier tracking dates may differ.</p></div>
+                <div class="invoice-bank-section invoice-mobile-section"><strong>Payment terms</strong><p>Payment method, shipping method, and final pricing will be confirmed by the supplier before payment.</p></div>
                 <p class="invoice-footer">This proforma invoice was issued by ${companyName}. Please contact ${companyEmail} for support.</p>
                 <div class="no-print" style="margin-top:24px"><button class="primary-btn" onclick="window.print()"><i class="fas fa-print"></i> Print / Save PDF</button></div>
             </div>
+            <div class="invoice-mobile-actions no-print"><button class="secondary-btn" onclick="navigate('message')"><i class="fas fa-arrow-left"></i> Back</button><button class="primary-btn" onclick="window.print()"><i class="fas fa-file-pdf"></i> Save PDF</button></div>
         </div>
     </section>`;
 }

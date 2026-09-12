@@ -591,16 +591,89 @@ input {
         background: #f4f4f4 !important;
     }
     .invoice-paper {
-        width: 850px !important;
-        min-width: 850px !important;
-        margin: 20px auto !important;
-        padding: 40px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 22px 16px 88px !important;
         background: white !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
-        /* Force desktop-like scaling on mobile */
-        zoom: 0.42;
-        -moz-transform: scale(0.42);
-        -moz-transform-origin: top center;
+        box-shadow: none !important;
+    }
+    .invoice-header {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 22px;
+    }
+    .invoice-meta h1 {
+        font-size: 22px;
+    }
+    .invoice-details {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin: 20px 0;
+    }
+    .invoice-col {
+        padding: 14px;
+        border: 1px solid #eee;
+        border-radius: 10px;
+    }
+    .invoice-table-desktop {
+        display: none;
+    }
+    .invoice-item-mobile {
+        display: block !important;
+        margin: 20px 0;
+        padding: 14px;
+        border: 1px solid #eee;
+        border-radius: 10px;
+        background: #fff;
+    }
+    .invoice-item-mobile h3 {
+        margin: 0 0 12px;
+        color: var(--primary-color);
+        font-size: 15px;
+    }
+    .invoice-item-mobile div {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 0;
+        border-top: 1px solid #f1f1f1;
+        font-size: 12px;
+    }
+    .invoice-item-mobile span {
+        color: #777;
+    }
+    .invoice-item-mobile strong {
+        text-align: right;
+        color: #222;
+    }
+    .invoice-summary,
+    .invoice-total {
+        width: 100%;
+    }
+    .invoice-bank-section {
+        margin: 20px 0;
+        padding: 14px;
+    }
+    .invoice-footer {
+        margin-top: 28px;
+    }
+    .invoice-mobile-actions {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex !important;
+        gap: 10px;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        background: rgba(255, 255, 255, 0.97);
+        border-top: 1px solid #e5e5e5;
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+        z-index: 20000;
+    }
+    .invoice-mobile-actions button {
+        flex: 1;
+        min-height: 44px;
     }
     .close-modal {
         position: fixed !important;
@@ -617,6 +690,38 @@ input {
         justify-content: center !important;
         box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
         font-size: 24px !important;
+    }
+}
+
+.invoice-mobile-actions {
+    display: none;
+}
+
+.invoice-item-mobile {
+    display: none;
+}
+
+/* Explicit desktop invoice mode keeps the full table visible. */
+.invoice-desktop-view .invoice-table-desktop {
+    display: block !important;
+}
+
+.invoice-desktop-view .invoice-item-mobile,
+.invoice-desktop-view .invoice-mobile-actions {
+    display: none !important;
+}
+
+@media (max-width: 600px) {
+    .invoice-desktop-view .invoice-modal-content {
+        width: 900px !important;
+        max-width: none !important;
+        overflow-x: auto !important;
+    }
+
+    .invoice-desktop-view .invoice-paper {
+        width: 840px !important;
+        min-width: 840px !important;
+        padding: 40px !important;
     }
 }
 
