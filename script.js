@@ -303,18 +303,35 @@ window.addEventListener('popstate', handleRouting);
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => navigate(item.dataset.page)));
     if (typeof firebase !== 'undefined') {
-        auth.onAuthStateChanged(user => {
-            currentUser = user;
-            if (user) {
-                db.collection("users").doc(user.uid).set({ id: user.uid, name: user.displayName, email: user.email }, { merge: true });
-                rtdb.ref("chats").on("value", s => {
-                    const d = s.val(); if (d) { userChats = Object.values(d).filter(c => c.id.includes(user.uid)); saveData(); if (document.querySelector('.message-page')) navigate('message', null, null, 'default', false); }
-                });
-            }
+        try {
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            rtdb = firebase.database();
+            auth = firebase.auth();
+            provider = new firebase.auth.GoogleAuthProvider();
+
+            auth.onAuthStateChanged(user => {
+                currentUser = user;
+                if (user) {
+                    db.collection("users").doc(user.uid).set({ id: user.uid, name: user.displayName, email: user.email }, { merge: true });
+                    rtdb.ref("chats").on("value", s => {
+                        const d = s.val(); if (d) { userChats = Object.values(d).filter(c => c.id.includes(user.uid)); saveData(); if (document.querySelector('.message-page')) navigate('message', null, null, 'default', false); }
+                    });
+                }
+                handleRouting();
+            });
+            db.collection("products").onSnapshot(s => { mockProducts = s.docs.map(d => ({ id: d.id, ...d.data() })); saveData(); handleRouting(); }, handleFirebaseError);
+            db.collection("adverts").onSnapshot(s => { featuredAds = s.docs.map(d => ({ id: d.id, ...d.data() })); saveData(); handleRouting(); }, handleFirebaseError);
+        } catch (error) {
+            handleFirebaseError(error);
             handleRouting();
-        });
-        db.collection("products").onSnapshot(s => { mockProducts = s.docs.map(d => ({ id: d.id, ...d.data() })); saveData(); handleRouting(); });
-        db.collection("adverts").onSnapshot(s => { featuredAds = s.docs.map(d => ({ id: d.id, ...d.data() })); saveData(); handleRouting(); });
+        }
+    } else {
+        handleRouting();
     }
-    handleRouting();
 });
+
+function handleFirebaseError(error) {
+    console.error('Firebase connection failed:', error);
+    showNotificationToast('Connection unavailable', 'Showing locally cached products.');
+}
