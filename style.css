@@ -1549,7 +1549,10 @@ input {
 }
 
 .profile-card-group select {
-    min-width: 150px;
+    width: 94px;
+    min-width: 94px;
+    max-width: 94px;
+    overflow: hidden;
     border: 1px solid #e2e2e2;
     border-radius: 8px;
     padding: 11px 8px;
@@ -1561,6 +1564,20 @@ input {
 .phone-input-group input {
     flex: 1;
     min-width: 0;
+}
+
+@media (max-width: 420px) {
+    .phone-input-group {
+        gap: 6px;
+    }
+
+    .profile-card-group select {
+        width: 82px;
+        min-width: 82px;
+        max-width: 82px;
+        padding-left: 5px;
+        padding-right: 4px;
+    }
 }
 
 .profile-card-group input:disabled {
