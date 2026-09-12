@@ -648,6 +648,32 @@ input {
     margin-bottom: 5px;
 }
 
+.invoice-brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #222;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.invoice-brand-mark span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    height: 32px;
+    padding: 0 8px;
+    border-radius: 6px;
+    background: var(--primary-color);
+    color: #fff;
+    font-size: 20px;
+}
+
+.invoice-logo p {
+    margin: 5px 0 0;
+}
+
 .invoice-logo p {
     font-size: 12px;
     color: var(--light-text);
@@ -737,6 +763,16 @@ input {
 .invoice-total {
     margin-left: auto;
     width: 250px;
+}
+
+.invoice-summary {
+    width: 250px;
+    margin-left: auto;
+    border-top: 1px solid #eee;
+}
+
+.invoice-summary .total-row {
+    font-size: 13px;
 }
 
 .total-row {
