@@ -144,6 +144,52 @@ function handleRouting() {
     navigate(segments[0] || 'home', segments[1], params.get('cat'), params.get('sort') || 'default', false);
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+}
+
+function openInvoice(invoiceId) {
+    navigate('invoice', invoiceId);
+}
+
+function renderChatMessage(message) {
+    const invoiceId = escapeHtml(message.invoiceId);
+    const attachmentUrl = String(message.attachmentUrl || '').trim();
+    const attachment = attachmentUrl
+        ? `<a class="msg-attachment" href="${escapeHtml(attachmentUrl)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(attachmentUrl)}" alt="Invoice attachment" loading="lazy"></a>`
+        : '';
+    const invoice = message.invoiceId
+        ? `<div class="invoice-card"><div class="invoice-card-header"><i class="fas fa-file-pdf"></i><div><strong>Proforma Invoice</strong><small>${invoiceId}</small></div></div><button class="view-invoice-btn" onclick="openInvoice('${invoiceId}')">View Invoice</button></div>`
+        : '';
+    const text = message.text ? `<div>${escapeHtml(message.text)}</div>` : '';
+    return `${invoice}${attachment}${text}`;
+}
+
+function renderInvoice(invoiceId) {
+    const safeInvoiceId = escapeHtml(invoiceId || 'INV-PENDING');
+    const customerName = escapeHtml(userData?.name || currentUser?.displayName || '1688 Customer');
+    const customerEmail = escapeHtml(userData?.email || currentUser?.email || '');
+    return `<section class="invoice-modal-overlay" id="invoice-modal">
+        <div class="invoice-modal-content">
+            <button class="close-modal no-print" aria-label="Close invoice" onclick="navigate('message')">&times;</button>
+            <div class="invoice-paper">
+                <div class="invoice-header">
+                    <div class="invoice-logo"><div class="official-logo-box">1688 Electronic Mart</div><p>Electronic sourcing platform</p></div>
+                    <div class="invoice-meta"><h1>PROFORMA INVOICE</h1><strong>${safeInvoiceId}</strong><p>${new Date().toLocaleDateString()}</p></div>
+                </div>
+                <div class="invoice-details">
+                    <div class="invoice-col"><h3>Bill To</h3><p><strong>${customerName}</strong></p><p>${customerEmail}</p></div>
+                    <div class="invoice-col"><h3>From</h3><p><strong>1688 Electronic Mart</strong></p><p>Shenzhen, China</p></div>
+                </div>
+                <table class="invoice-table"><thead><tr><th>Description</th><th>Quantity</th><th>Amount</th></tr></thead><tbody><tr><td>Electronic goods sourcing order</td><td>1</td><td>To be confirmed</td></tr></tbody></table>
+                <div class="invoice-total"><div class="total-row grand-total"><span>Total</span><span>To be confirmed</span></div></div>
+                <p class="invoice-footer">This proforma invoice was issued by 1688 Electronic Mart. Final pricing and shipping will be confirmed by the supplier.</p>
+                <div class="no-print" style="margin-top:24px"><button class="primary-btn" onclick="window.print()"><i class="fas fa-print"></i> Print / Save PDF</button></div>
+            </div>
+        </div>
+    </section>`;
+}
+
 // --- 5. RENDERERS ---
 const pages = {
     home: (searchQuery = '', filterCategory = null, sortBy = 'default') => {
@@ -199,19 +245,36 @@ const pages = {
     },
     profile: () => {
         if (!currentUser) return `<div class="profile-page page-enter" style="text-align:center; padding:100px 20px"><img src="https://gw.alicdn.com/tps/i2/TB1nmqyFFXXXXcQbFXXE5jB3XXX-114-114.png" style="width:80px; margin-bottom:20px"><h2>Welcome to 1688</h2><button class="primary-btn" onclick="signInWithGoogle()" style="margin-top:20px; background:var(--primary-color); color:white; border:none; padding:12px 25px; border-radius:8px; font-weight:bold">Sign in with Google</button></div>`;
+        const name = userData?.name || currentUser.displayName || 'Member';
+        const email = userData?.email || currentUser.email || 'Email unavailable';
+        const phone = userData?.phone || currentUser.phoneNumber || 'Not provided';
+        const location = userData?.location || userData?.address || 'Not provided';
         return `
         <div class="profile-page page-enter">
-            <header style="background:#333; color:#fff; padding:40px 20px; display:flex; align-items:center; gap:20px">
+            <header class="profile-header-premium">
                 <div style="width:64px; height:64px; border-radius:50%; overflow:hidden; background:#eee">
                     ${currentUser.photoURL ? `<img src="${currentUser.photoURL}" style="width:100%; height:100%">` : '<i class="fas fa-user fa-2x"></i>'}
                 </div>
-                <div><h2 style="margin:0">${currentUser.displayName || 'Member'}</h2><p style="margin:5px 0 0; opacity:0.7">${currentUser.email}</p></div>
+                <div><h2 style="margin:0">${escapeHtml(name)}</h2><p style="margin:5px 0 0; opacity:0.7">${escapeHtml(email)}</p><small class="member-id">Member ID: ${escapeHtml(currentUser.uid)}</small></div>
             </header>
-            <div class="service-list" style="padding:20px; display:flex; flex-direction:column; gap:12px">
-                <button class="secondary-btn" onclick="logout()" style="padding:15px; background:#fff; color:#ff4d4f; border:1px solid #eee; border-radius:10px; font-weight:bold"><i class="fas fa-sign-out-alt"></i> Log Out</button>
+            <section class="profile-card-group">
+                <div class="card-header"><span class="card-title">Account details</span></div>
+                <div class="service-list">
+                    <div class="service-item"><span class="service-item-left"><i class="fas fa-envelope"></i><span>Email</span></span><span>${escapeHtml(email)}</span></div>
+                    <div class="service-item"><span class="service-item-left"><i class="fas fa-phone"></i><span>Phone</span></span><span>${escapeHtml(phone)}</span></div>
+                    <div class="service-item"><span class="service-item-left"><i class="fas fa-location-dot"></i><span>Location</span></span><span>${escapeHtml(location)}</span></div>
+                </div>
+            </section>
+            <section class="profile-card-group">
+                <div class="card-header"><span class="card-title">Activity</span></div>
+                <div class="icon-grid grid-3"><div class="grid-item"><span class="stat-val">${cart.length}</span><span class="stat-label">Cart items</span></div><div class="grid-item"><span class="stat-val">${favorites.length}</span><span class="stat-label">Favorites</span></div><div class="grid-item"><span class="stat-val">${userChats.length}</span><span class="stat-label">Messages</span></div></div>
+            </section>
+            <div class="logout-container">
+                <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Log Out</button>
             </div>
         </div>`;
     },
+    invoice: (invoiceId) => renderInvoice(invoiceId),
     message: () => `<div class="message-page page-enter" style="padding:20px"><div class="section-title">Messages</div><div class="chat-list" style="margin-top:20px">${userChats.length === 0 ? '<p style="text-align:center; margin-top:50px; color:#999">No messages yet.</p>' : userChats.map(msg => `<div class="chat-item" onclick="navigate('chat', '${msg.id}')" style="padding:15px; background:#fff; border-radius:12px; margin-bottom:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05)"><strong>${msg.userName}</strong><p style="font-size:12px; color:#666; margin-top:5px">${msg.lastMessage}</p></div>`).join('')}</div></div>`,
     chat: (id) => {
         const chat = userChats.find(m => m.id === id);
@@ -223,7 +286,7 @@ const pages = {
                     <strong>${chat.userName}</strong>
                 </div>
                 <div class="chat-body" id="chat-body" style="height:calc(100vh - 120px); overflow-y:auto; padding:15px; display:flex; flex-direction:column">
-                    ${chat.messages.map(m => `<div class="msg-bubble ${m.senderRole==='user'?'me':'them'}" style="margin-bottom:10px; padding:10px 15px; border-radius:15px; max-width:80%; align-self:${m.senderRole==='user'?'flex-end':'flex-start'}; background:${m.senderRole==='user'?'var(--primary-color)':'#f4f4f4'}; color:${m.senderRole==='user'?'#fff':'#333'}">${m.text}</div>`).join('')}
+                    ${chat.messages.map(m => `<div class="msg-bubble ${m.senderRole==='user'?'me':'them'}" style="margin-bottom:10px; padding:10px 15px; border-radius:15px; max-width:80%; align-self:${m.senderRole==='user'?'flex-end':'flex-start'}; background:${m.senderRole==='user'?'var(--primary-color)':'#f4f4f4'}; color:${m.senderRole==='user'?'#fff':'#333'}">${renderChatMessage(m)}</div>`).join('')}
                 </div>
                 <div class="chat-footer" style="padding:10px; background:#fff; border-top:1px solid #eee; display:flex; gap:10px">
                     <input type="text" id="chat-input" placeholder="Type a message..." style="flex:1; border:1px solid #ddd; padding:10px; border-radius:20px">
@@ -314,6 +377,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentUser = user;
                 if (user) {
                     db.collection("users").doc(user.uid).set({ id: user.uid, name: user.displayName, email: user.email }, { merge: true });
+                    db.collection("users").doc(user.uid).get().then(snapshot => {
+                        userData = snapshot.exists ? { id: snapshot.id, ...snapshot.data() } : { id: user.uid, name: user.displayName, email: user.email };
+                        if (document.querySelector('.profile-page')) navigate('profile', null, null, 'default', false);
+                    }).catch(handleFirebaseError);
                     rtdb.ref("chats").on("value", s => {
                         const d = s.val(); if (d) { userChats = Object.values(d).filter(c => c.id.includes(user.uid)); saveData(); if (document.querySelector('.message-page')) navigate('message', null, null, 'default', false); }
                     });
