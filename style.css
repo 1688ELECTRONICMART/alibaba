@@ -1507,6 +1507,26 @@ input {
     font-weight: 400;
 }
 
+.phone-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.profile-card-group select {
+    min-width: 150px;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    padding: 11px 8px;
+    color: var(--text-color);
+    background: #fff;
+    font: inherit;
+}
+
+.phone-input-group input {
+    flex: 1;
+    min-width: 0;
+}
+
 .profile-card-group input:disabled {
     color: #888;
     background: #f7f7f7;

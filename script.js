@@ -42,6 +42,11 @@ let recentSearches = storage.get('recentSearches', []);
 let addresses = storage.get('addresses', []);
 let selectedCartItems = new Set(storage.get('selectedCartItems', []));
 let addressFormState = { mode: 'new', id: null };
+const countryCodes = [
+    ['+86', 'China'], ['+234', 'Nigeria'], ['+1', 'United States / Canada'], ['+44', 'United Kingdom'],
+    ['+91', 'India'], ['+27', 'South Africa'], ['+233', 'Ghana'], ['+254', 'Kenya'],
+    ['+61', 'Australia'], ['+81', 'Japan'], ['+49', 'Germany'], ['+33', 'France']
+];
 
 // --- 3. HELPERS ---
 function cloudinaryOptimize(url, width = null) {
@@ -174,7 +179,7 @@ function renderInvoice(invoiceId) {
     const safeInvoiceId = escapeHtml(invoiceId || 'INV-PENDING');
     const customerName = escapeHtml(userData?.name || currentUser?.displayName || '1688 Customer');
     const customerEmail = escapeHtml(userData?.email || currentUser?.email || '');
-    const customerPhone = escapeHtml(userData?.phone || currentUser?.phoneNumber || 'Not provided');
+    const customerPhone = escapeHtml(`${userData?.phoneCountryCode || ''} ${userData?.phone || currentUser?.phoneNumber || 'Not provided'}`.trim());
     const customerAddress = userData?.address || {};
     const addressLine = escapeHtml(customerAddress.line1 || customerAddress.address || 'Not provided');
     const addressCity = escapeHtml(customerAddress.city || '');
@@ -259,7 +264,8 @@ const pages = {
         if (!currentUser) return `<div class="profile-page page-enter" style="text-align:center; padding:100px 20px"><img src="https://gw.alicdn.com/tps/i2/TB1nmqyFFXXXXcQbFXXE5jB3XXX-114-114.png" style="width:80px; margin-bottom:20px"><h2>Welcome to 1688</h2><button class="primary-btn" onclick="signInWithGoogle()" style="margin-top:20px; background:var(--primary-color); color:white; border:none; padding:12px 25px; border-radius:8px; font-weight:bold">Sign in with Google</button></div>`;
         const name = userData?.name || currentUser.displayName || 'Member';
         const email = userData?.email || currentUser.email || 'Email unavailable';
-        const phone = userData?.phone || currentUser.phoneNumber || 'Not provided';
+        const phone = userData?.phone || currentUser.phoneNumber || '';
+        const phoneCountryCode = userData?.phoneCountryCode || '+234';
         const address = userData?.address || addresses[0] || {};
         return `
         <div class="profile-page page-enter">
@@ -274,7 +280,7 @@ const pages = {
                 <div class="service-list" style="gap:10px">
                     <label>Full name<input id="profile-name" value="${escapeHtml(name)}" autocomplete="name"></label>
                     <label>Email<input value="${escapeHtml(email)}" disabled autocomplete="email"></label>
-                    <label>Phone number<input id="profile-phone" value="${escapeHtml(phone === 'Not provided' ? '' : phone)}" autocomplete="tel"></label>
+                    <label>Phone number<div class="phone-input-group"><select id="profile-phone-country" aria-label="Country calling code">${countryCodes.map(([code, country]) => `<option value="${code}" ${code === phoneCountryCode ? 'selected' : ''}>${code} ${country}</option>`).join('')}</select><input id="profile-phone" value="${escapeHtml(phone)}" autocomplete="tel" inputmode="tel" placeholder="Phone number"></div></label>
                     <label>Address line<input id="profile-address" value="${escapeHtml(address.line1 || address.address || '')}" autocomplete="street-address"></label>
                     <label>City<input id="profile-city" value="${escapeHtml(address.city || '')}" autocomplete="address-level2"></label>
                     <label>Country<input id="profile-country" value="${escapeHtml(address.country || '')}" autocomplete="country-name"></label>
@@ -360,6 +366,7 @@ function saveProfileDetails() {
         name: document.getElementById('profile-name')?.value.trim() || currentUser.displayName || 'Member',
         email: currentUser.email || '',
         phone: document.getElementById('profile-phone')?.value.trim() || '',
+        phoneCountryCode: document.getElementById('profile-phone-country')?.value || '+234',
         address: {
             line1: document.getElementById('profile-address')?.value.trim() || '',
             city: document.getElementById('profile-city')?.value.trim() || '',
@@ -371,6 +378,7 @@ function saveProfileDetails() {
     userData = { ...userData, ...details };
     addresses = [details.address];
     storage.set('addresses', addresses);
+    storage.set(`profile_${currentUser.uid}`, details);
     if (db) {
         db.collection('users').doc(currentUser.uid).set(details, { merge: true })
             .then(() => showNotificationToast('Profile saved', 'Your delivery details were updated.'))
@@ -423,9 +431,17 @@ document.addEventListener('DOMContentLoaded', () => {
             auth.onAuthStateChanged(user => {
                 currentUser = user;
                 if (user) {
+                    const cachedProfile = storage.get(`profile_${user.uid}`, null);
+                    if (cachedProfile) {
+                        userData = cachedProfile;
+                        addresses = cachedProfile.address ? [cachedProfile.address] : addresses;
+                    }
                     db.collection("users").doc(user.uid).set({ id: user.uid, name: user.displayName, email: user.email }, { merge: true });
                     db.collection("users").doc(user.uid).get().then(snapshot => {
-                        userData = snapshot.exists ? { id: snapshot.id, ...snapshot.data() } : { id: user.uid, name: user.displayName, email: user.email };
+                        const remoteProfile = snapshot.exists ? { id: snapshot.id, ...snapshot.data() } : {};
+                        userData = { ...(cachedProfile || {}), ...remoteProfile, name: remoteProfile.name || cachedProfile?.name || user.displayName, email: remoteProfile.email || cachedProfile?.email || user.email };
+                        if (userData.address) addresses = [userData.address];
+                        storage.set(`profile_${user.uid}`, userData);
                         if (document.querySelector('.profile-page')) navigate('profile', null, null, 'default', false);
                     }).catch(handleFirebaseError);
                     rtdb.ref("chats").on("value", s => {
