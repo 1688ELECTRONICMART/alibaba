@@ -631,6 +631,18 @@ async function fetchXianyuServerAdverts() {
                 title: "限时秒杀",
                 short: "超值推荐 - Flash Sale on Smart Industrial Sensors.",
                 imageUrl: "https://images.unsplash.com/photo-1555664424-778a1e5e1b48?q=80&w=1000&auto=format&fit=crop"
+            },
+            {
+                id: "server-remote-004",
+                title: "二手手机限时狂欢",
+                short: "Premium quality used flagship smartphones up to 50% off.",
+                imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=1000&auto=format&fit=crop"
+            },
+            {
+                id: "server-remote-005",
+                title: "闲鱼特惠",
+                short: "High-performance enterprise laptops and notebooks clearance.",
+                imageUrl: "https://images.unsplash.com/photo-1603302576837-37561b2e2302?q=80&w=1000&auto=format&fit=crop"
             }
         ];
 
