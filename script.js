@@ -1,9 +1,9 @@
 /**
  * 1688 Electronic Mart - Premium Web Interface
- * Version: 1.0.9
+ * Version: 1.1.0
  */
 
-const CURRENT_VERSION = "1.0.9";
+const CURRENT_VERSION = "1.1.0";
 
 // --- 1. FIREBASE CONFIG ---
 const firebaseConfig = {
@@ -379,7 +379,7 @@ const pages = {
             </div>`;
     },
     profile: () => {
-        if (!currentUser) return `<div class="profile-page page-enter" style="text-align:center; padding:100px 20px"><img src="https://gw.alicdn.com/tps/i2/TB1nmqyFFXXXXcQbFXXE5jB3XXX-114-114.png" style="width:80px; margin-bottom:20px"><h2>Welcome to 1688</h2><button class="primary-btn" onclick="signInWithGoogle()" style="margin-top:20px; background:var(--primary-color); color:white; border:none; padding:12px 25px; border-radius:8px; font-weight:bold">Sign in with Google</button></div>`;
+        if (!currentUser) return `<div class="profile-page page-enter" style="text-align:center; padding:100px 20px"><img src="icon.png" style="width:80px; margin-bottom:20px; border-radius:12px"><h2 style="margin-bottom:25px">Welcome to 1688</h2><div style="display:flex; flex-direction:column; gap:12px; max-width:280px; margin:0 auto"><button class="primary-btn" onclick="signInWithGoogle()" style="background:#fff; color:#444; border:1px solid #ddd; padding:12px; border-radius:12px; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 2px 5px rgba(0,0,0,0.05)"><i class="fab fa-google" style="color:#4285F4"></i> Sign in with Google</button><button class="primary-btn" onclick="signInWithFacebook()" style="background:#1877F2; color:white; border:none; padding:12px; border-radius:12px; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1)"><i class="fab fa-facebook"></i> Sign in with Facebook</button></div></div>`;
         const name = userData?.name || currentUser.displayName || 'Member';
         const email = userData?.email || currentUser.email || 'Email unavailable';
         const phone = userData?.phone || currentUser.phoneNumber || '';
@@ -476,6 +476,17 @@ function renderProductDetail(id) {
 function signInWithGoogle() {
     if (!auth || !provider) return alert('Google sign-in is not ready. Please reload the page.');
     auth.signInWithPopup(provider).catch(e => alert(e.message));
+}
+function signInWithFacebook() {
+    if (!auth) return alert('Auth is not ready. Please reload the page.');
+    const fbProvider = new firebase.auth.FacebookAuthProvider();
+    auth.signInWithPopup(fbProvider).catch(e => {
+        if (e.code === 'auth/account-exists-with-different-credential') {
+            alert('An account already exists with the same email address but different sign-in credentials. Please sign in using Google.');
+        } else {
+            alert(e.message);
+        }
+    });
 }
 function saveProfileDetails() {
     if (!currentUser) return navigate('profile');
