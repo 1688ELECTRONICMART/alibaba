@@ -1,7 +1,9 @@
 /**
  * 1688 Electronic Mart - Premium Web Interface
- * Version: 1.0.7
+ * Version: 1.0.8
  */
+
+const CURRENT_VERSION = "1.0.8";
 
 // --- 1. FIREBASE CONFIG ---
 const firebaseConfig = {
@@ -600,6 +602,24 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             db.collection("products").onSnapshot(s => { mockProducts = s.docs.map(d => ({ id: d.id, ...d.data() })); saveData(); handleRouting(); }, handleFirebaseError);
             db.collection("adverts").onSnapshot(s => { featuredAds = s.docs.map(d => ({ id: d.id, ...d.data() })); saveData(); handleRouting(); }, handleFirebaseError);
+
+            // Remote Version Sync & Forced Browser Auto-Refresh Engine
+            rtdb.ref("system/config/webVersion").on("value", snapshot => {
+                const serverVersion = snapshot.val();
+                if (serverVersion && serverVersion !== CURRENT_VERSION) {
+                    console.log(`New code deploy detected! Server version: ${serverVersion}, Local version: ${CURRENT_VERSION}. Updating caches and forcing window refresh...`);
+
+                    // Communicate with active PWA Service Worker to clear obsolete browser assets
+                    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+                    }
+
+                    // Perform forced window reload from hosting origin to fetch fresh files immediately
+                    setTimeout(() => {
+                        window.location.reload(true);
+                    }, 500);
+                }
+            });
         } catch (error) {
             handleFirebaseError(error);
             handleRouting();
