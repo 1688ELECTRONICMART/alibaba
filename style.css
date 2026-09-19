@@ -80,11 +80,12 @@ input {
 /* Ad Carousel */
 .promo-carousel {
     position: relative;
-    height: 160px;
-    margin: 10px 15px;
-    border-radius: 16px;
+    height: 180px;
+    margin: 15px;
+    border-radius: 20px;
     overflow: hidden;
-    background-color: var(--soft-orange);
+    background-color: #000; /* Dark fallback to make white text pop */
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
 }
 
 .promo-carousel:empty {
@@ -96,14 +97,16 @@ input {
     height: 100%;
     background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
     display: flex;
-    align-items: center;
-    padding: 20px;
+    align-items: flex-end; /* Align text to bottom to avoid search bar overlap */
+    padding: 25px;
     color: var(--white);
     position: absolute;
     top: 0;
     left: 0;
     opacity: 0;
-    transition: opacity 0.5s ease;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    background-size: cover !important;
+    background-position: center !important;
 }
 
 .carousel-slide.active {
@@ -111,14 +114,25 @@ input {
     z-index: 1;
 }
 
+.carousel-content {
+    background: rgba(0,0,0,0.3); /* Add translucent bg to text for legibility */
+    padding: 12px 18px;
+    border-radius: 12px;
+    backdrop-filter: blur(4px);
+    width: 100%;
+}
+
 .carousel-content h2 {
-    font-size: 18px;
-    margin-bottom: 5px;
+    font-size: 19px;
+    font-weight: 800;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .carousel-content p {
     font-size: 12px;
-    opacity: 0.9;
+    opacity: 0.95;
+    line-height: 1.4;
 }
 
 .carousel-indicators {
