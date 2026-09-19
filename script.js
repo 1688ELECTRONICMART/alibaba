@@ -1,9 +1,9 @@
 /**
  * 1688 Electronic Mart - Premium Web Interface
- * Version: 1.0.8
+ * Version: 1.0.9
  */
 
-const CURRENT_VERSION = "1.0.8";
+const CURRENT_VERSION = "1.0.9";
 
 // --- 1. FIREBASE CONFIG ---
 const firebaseConfig = {
@@ -628,6 +628,73 @@ document.addEventListener('DOMContentLoaded', () => {
         handleRouting();
     }
 });
+
+// PWA Service Worker Activation and Before Install Banner Workflow
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker successfully bound to scope:', reg.scope))
+            .catch(err => console.error('Service Worker subscription failed:', err));
+    });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the default minimal browser bottom sheet prompt
+    e.preventDefault();
+    // Cache the event so it can be triggered programmatically
+    deferredPrompt = e;
+
+    // Inject a premium, non-intrusive sticky installation banner at the top of the app view container layout
+    setTimeout(() => {
+        if (!document.getElementById('pwa-install-banner')) {
+            const banner = document.createElement('div');
+            banner.id = 'pwa-install-banner';
+            banner.innerHTML = `
+                <div style="position: fixed; top: 12px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 480px; background: #fff; border-left: 5px solid #ff6000; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; z-index: 99999; animation: slideDownIn 0.4s ease forwards;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <img src="icon.png" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover;" alt="App Icon">
+                        <div>
+                            <h4 style="margin: 0; font-size: 14px; color: #222; font-weight: 700;">Install 1688 Mobile</h4>
+                            <p style="margin: 2px 0 0; font-size: 11px; color: #666;">Add to your home screen for quick access</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button onclick="dismissPwaBanner()" style="background: none; border: none; color: #999; padding: 6px; cursor: pointer; font-size: 14px;">Later</button>
+                        <button onclick="triggerPwaInstallation()" style="background: #ff6000; border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer;">Install</button>
+                    </div>
+                </div>
+                <style>
+                    @keyframes slideDownIn {
+                        from { transform: translate(-50%, -50px); opacity: 0; }
+                        to { transform: translate(-50%, 0); opacity: 1; }
+                    }
+                </style>
+            `;
+            document.body.appendChild(banner);
+        }
+    }, 2000);
+});
+
+function dismissPwaBanner() {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.remove();
+}
+
+function triggerPwaInstallation() {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.remove();
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+            console.log('User successfully accepted installation');
+        } else {
+            console.log('User dismissed standalone installation');
+        }
+        deferredPrompt = null;
+    });
+}
 
 function handleFirebaseError(error) {
     console.error('Firebase connection failed:', error);

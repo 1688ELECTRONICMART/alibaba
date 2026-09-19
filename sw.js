@@ -1,10 +1,11 @@
-const CACHE_NAME = '1688-mart-v8';
+const CACHE_NAME = '1688-mart-v9';
 const ASSETS = [
     './',
     './index.html',
     './style.css',
     './script.js',
     './manifest.json',
+    './icon.png',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
 ];
 
