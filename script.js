@@ -1,9 +1,9 @@
 /**
  * 1688 Electronic Mart - Premium Web Interface
- * Version: 1.1.1
+ * Version: 1.1.2
  */
 
-const CURRENT_VERSION = "1.1.1";
+const CURRENT_VERSION = "1.1.2";
 
 // --- 1. FIREBASE CONFIG ---
 const firebaseConfig = {
@@ -135,6 +135,21 @@ function saveData() {
     storage.set('cart', cart);
     storage.set('favorites', favorites);
     storage.set('selectedCartItems', Array.from(selectedCartItems));
+    updateBadges();
+}
+
+function updateBadges() {
+    const cartBadge = document.querySelector('.cart-badge');
+    if (cartBadge) {
+        cartBadge.textContent = cart.length;
+        cartBadge.style.display = cart.length > 0 ? 'flex' : 'none';
+    }
+    const msgBadge = document.querySelector('.message-badge');
+    if (msgBadge) {
+        const unread = userChats.reduce((acc, c) => acc + (c.userUnreadCount || 0), 0);
+        msgBadge.textContent = unread;
+        msgBadge.style.display = unread > 0 ? 'flex' : 'none';
+    }
 }
 
 function trackFootprint(itemId, type) {
@@ -172,7 +187,15 @@ function navigate(pageId, itemId = null, category = null, sortBy = 'default', up
 
     const header = document.querySelector('.header');
     const nav = document.querySelector('.bottom-nav');
-    if (pageId === 'chat') { header.style.display = 'none'; nav.style.display = 'none'; document.body.classList.add('chat-mode'); }
+    if (pageId === 'chat') {
+        header.style.display = 'none';
+        nav.style.display = 'none';
+        document.body.classList.add('chat-mode');
+        // Reset unread count when entering chat
+        if (itemId && rtdb) {
+            rtdb.ref(`chats/${itemId}/userUnreadCount`).set(0);
+        }
+    }
     else { header.style.display = 'block'; nav.style.display = 'flex'; document.body.classList.remove('chat-mode'); }
 
     let html = '';
@@ -549,6 +572,7 @@ function sendRealMessage(chatId) {
 window.addEventListener('popstate', handleRouting);
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => navigate(item.dataset.page)));
+    updateBadges();
     if (typeof firebase !== 'undefined') {
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
