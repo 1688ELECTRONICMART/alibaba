@@ -645,6 +645,14 @@ async function fetchXianyuServerAdverts() {
         });
 
         featuredAds = newAds;
+        // Make sure to write cache update to localStorage via storage wrapper
+        storage.set('cache_adverts', featuredAds);
+        updateBadges();
+        if (typeof handleRouting === 'function') handleRouting();
+    } catch (e) {
+        console.error("Xianyu server integration failed:", e);
+    }
+}
         saveData();
         if (typeof handleRouting === 'function') handleRouting();
     } catch (e) {
