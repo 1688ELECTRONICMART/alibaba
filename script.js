@@ -677,12 +677,6 @@ function initCarouselTimer() {
         slides[nextIndex].classList.add('active');
     }, 4000);
 }
-        saveData();
-        if (typeof handleRouting === 'function') handleRouting();
-    } catch (e) {
-        console.error("Xianyu server integration failed:", e);
-    }
-}
 
 // --- 7. INITIALIZATION ---
 window.addEventListener('popstate', handleRouting);
