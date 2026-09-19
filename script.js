@@ -1,9 +1,9 @@
 /**
  * 1688 Electronic Mart - Premium Web Interface
- * Version: 1.1.2
+ * Version: 1.1.3
  */
 
-const CURRENT_VERSION = "1.1.2";
+const CURRENT_VERSION = "1.1.3";
 
 // --- 1. FIREBASE CONFIG ---
 const firebaseConfig = {
@@ -439,7 +439,14 @@ const pages = {
         </div>`;
     },
     invoice: (invoiceId) => renderInvoice(invoiceId),
-    message: () => `<div class="message-page page-enter" style="padding:20px"><div class="section-title">Messages</div><div class="chat-list" style="margin-top:20px">${userChats.length === 0 ? '<p style="text-align:center; margin-top:50px; color:#999">No messages yet.</p>' : userChats.map(msg => `<div class="chat-item" onclick="navigate('chat', '${msg.id}')" style="padding:15px; background:#fff; border-radius:12px; margin-bottom:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05)"><strong>${msg.userName}</strong><p style="font-size:12px; color:#666; margin-top:5px">${msg.lastMessage}</p></div>`).join('')}</div></div>`,
+    message: () => `<div class="message-page page-enter" style="padding:20px"><div class="section-title">Messages</div><div class="chat-list" style="margin-top:20px">${userChats.length === 0 ? '<p style="text-align:center; margin-top:50px; color:#999">No messages yet.</p>' : userChats.map(msg => `
+        <div class="chat-item" onclick="navigate('chat', '${msg.id}')" style="padding:15px; background:#fff; border-radius:16px; margin-bottom:12px; box-shadow:0 2px 10px rgba(0,0,0,0.04); display:flex; align-items:center; justify-content:space-between">
+            <div style="flex:1">
+                <strong style="display:block; font-size:15px; color:#222">${msg.userName}</strong>
+                <p style="font-size:12px; color:#888; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px">${msg.lastMessage}</p>
+            </div>
+            ${msg.userUnreadCount > 0 ? `<span style="background:var(--primary-color); color:#fff; font-size:10px; font-weight:800; min-width:18px; height:18px; border-radius:10px; display:flex; align-items:center; justify-content:center; padding:0 6px">${msg.userUnreadCount}</span>` : '<i class="fas fa-chevron-right" style="color:#eee; font-size:12px"></i>'}
+        </div>`).join('')}</div></div>`,
     chat: (id) => {
         const chat = userChats.find(m => m.id === id);
         if (!chat) return pages.message();

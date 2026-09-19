@@ -2242,7 +2242,8 @@ input {
     justify-content: center;
 }
 
-.cart-badge {
+.cart-badge,
+.message-badge {
     position: absolute;
     top: -5px;
     right: -10px;
@@ -2258,6 +2259,7 @@ input {
     justify-content: center;
     border: 2px solid white;
     box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
 }
 
 /* Success Page */

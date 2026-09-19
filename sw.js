@@ -1,4 +1,4 @@
-const CACHE_NAME = '1688-mart-v12';
+const CACHE_NAME = '1688-mart-v13';
 const ASSETS = [
     './',
     './index.html',
